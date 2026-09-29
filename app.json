@@ -3,9 +3,11 @@
     "name": "NomadLM",
     "slug": "nomad-research",
     "version": "1.0.0",
-    "newArchEnabled": true,
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0d1117"
+    },
     "android": {
       "package": "xyz.nomad.research",
       "versionCode": 1,
