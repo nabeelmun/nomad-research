@@ -94,7 +94,7 @@ export default function ResearchTerminal() {
           </View>
         </View>
         <Text style={styles.telemetryText}>
-          ARM64 Octa-Core • 4 Threads • RAM: ~2.4GB • AIRPLANE MODE
+          Offline Engine • Airplane Mode Verified • Zero Network Calls
         </Text>
       </View>
 
