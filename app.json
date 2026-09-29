@@ -3,6 +3,7 @@
     "name": "NomadLM",
     "slug": "nomad-research",
     "version": "1.0.0",
+    "newArchEnabled": true,
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "android": {
