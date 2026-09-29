@@ -94,7 +94,7 @@ export default function ResearchTerminal() {
           </View>
         </View>
         <Text style={styles.telemetryText}>
-          ARM Cortex-A715 • 4 Threads • RAM: 2.3GB / 8GB • AIRPLANE MODE
+          ARM64 Octa-Core • 4 Threads • RAM: ~2.4GB • AIRPLANE MODE
         </Text>
       </View>
 
