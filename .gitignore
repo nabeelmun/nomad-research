@@ -1,0 +1,9 @@
+node_modules/
+.expo/
+dist/
+android/
+ios/
+models/*.gguf
+*.db
+.DS_Store
+*.log

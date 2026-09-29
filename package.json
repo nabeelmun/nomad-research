@@ -1,0 +1,29 @@
+{
+  "name": "nomad-research",
+  "version": "1.0.0",
+  "description": "NomadLM: The High-Speed, Zero-RAM-Crash Offline AI Research Engine for Android",
+  "author": "Nomad Research Team",
+  "license": "MIT",
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "typecheck": "tsc --noEmit",
+    "build:apk": "eas build -p android --profile preview"
+  },
+  "dependencies": {
+    "expo": "~51.0.0",
+    "expo-file-system": "~17.0.1",
+    "expo-sqlite": "~14.0.3",
+    "expo-status-bar": "~1.12.1",
+    "llama.rn": "^0.13.0-rc.4",
+    "react": "18.2.0",
+    "react-native": "0.74.5",
+    "react-native-safe-area-context": "4.10.5"
+  },
+  "devDependencies": {
+    "@types/react": "~18.2.45",
+    "typescript": "^5.3.3"
+  },
+  "private": true
+}
