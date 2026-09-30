@@ -1,5 +1,6 @@
 import { knowledgeStore, SearchResult } from './KnowledgeStore';
 import { llamaEngine, GenerationMetrics } from '../inference/LlamaEngine';
+import { cleanLatexMath } from '../ui/MarkdownView';
 
 export interface ResearchCitation {
   id: number;
@@ -64,13 +65,14 @@ IMPORTANT SPECIFICITY, SAFETY & REASONING RULES:
    - If a question contains a false, anachronistic, or impossible premise (e.g. asking what historical figures like Albert Einstein said about inventions made after their death like the 1995 internet): explicitly identify and refute the false premise immediately rather than inventing quotes or statements.
    - If a question asks to summarize future or unverified events (e.g. a future 2027 Mars landing press conference): state directly that the event has not occurred and refuse to fabricate fictional press conferences or events.
    - If asked for Michelin 3-star restaurants or major awards in small villages or towns that do not possess them: explicitly state that no such restaurant exists there. Never fabricate awards or places.
-4. MATHEMATICAL, FINANCIAL & UNIT CONVERSION PRECISION (SCRATCHPAD REASONING):
+4. MATHEMATICAL, FINANCIAL & UNIT CONVERSION PRECISION:
    - For all budgeting, shopping, and money calculations:
-     * List all purchased items and their exact prices clearly.
-     * ALWAYS sum the total cost of all purchased items together FIRST (e.g. "Total cost = Shirt (₹450) + Pants (₹300) = ₹750").
-     * Then subtract that total sum from the starting amount (e.g. "Remaining balance = ₹1,000 - ₹750 = ₹250").
-     * NEVER omit any items or stop halfway through the calculation.
-     * Maintain the user's currency throughout (whether provided as ₹, rupees, Rs., or INR; NEVER switch to $ or $$).
+     * Structure your response strictly in these 3 concise steps and nothing else:
+       1. Total Expenses: List each purchased item and compute the sum (e.g. "Total Spent = Shirt (₹450) + Pants (₹300) = ₹750").
+       2. Balance Calculation: Subtract total spent from starting funds (e.g. "₹1,000 - ₹750 = ₹250").
+       3. Final Remaining Balance: State the final verified balance (e.g. "Remaining Balance: ₹250").
+     * NEVER repeat the calculation in multiple contradictory ways or append unnecessary disclaimers.
+     * Universal Currency Preservation: Strictly maintain whatever currency the user specifies across the entire response — whether given as a symbol (€, £, $, ¥, ₹, ₩, ₺, ฿, ₫), code (USD, EUR, GBP, JPY, INR, CAD, AUD, AED), or written word (dollars, euros, pounds, yen, rupees, dirhams, pesos). NEVER substitute or switch currency midway through a calculation.
    - Clean Plain-Text Math Formatting:
      * Write formulas and arithmetic in clean, natural plain text using standard operators (×, ÷, +, -, =).
      * NEVER output raw LaTeX markup (do NOT use \boxed{}, \text{}, \frac{}, \(, \), or standalone \[ \] / $$ delimiters).
@@ -84,10 +86,12 @@ Be concise, structured, and factual.<|im_end|>
 `;
 
     // Multi-turn context: roll last 4 messages (2 exchanges) to maintain conversational memory within mobile context limit
+    // Sanitize past assistant messages so previous LaTeX never poisons the context
     let historyBlock = '';
     const recentHistory = history.filter(m => m.content && m.content.trim().length > 0).slice(-4);
     for (const msg of recentHistory) {
-      historyBlock += `<|im_start|>${msg.role}\n${msg.content}<|im_end|>\n`;
+      const cleanContent = cleanLatexMath(msg.content);
+      historyBlock += `<|im_start|>${msg.role}\n${cleanContent}<|im_end|>\n`;
     }
 
     const currentTurn = `<|im_start|>user

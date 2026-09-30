@@ -13,8 +13,6 @@ export const MarkdownView: React.FC<MarkdownViewProps> = React.memo(({ content, 
   const renderedElements: React.ReactNode[] = [];
   let inCodeBlock = false;
   let codeBlockLines: string[] = [];
-  let inMathBlock = false;
-  let mathBlockLines: string[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -42,44 +40,8 @@ export const MarkdownView: React.FC<MarkdownViewProps> = React.memo(({ content, 
 
     const trimmed = line.trim();
 
-    // Handle display math block delimiters like standalone [ or \[ or $$
-    if (trimmed === '\\[' || trimmed === '[' || trimmed === '$$') {
-      inMathBlock = true;
-      continue;
-    }
-
-    if (inMathBlock && (trimmed === '\\]' || trimmed === ']' || trimmed === '$$')) {
-      inMathBlock = false;
-      const formula = cleanLatexMath(mathBlockLines.join(' '));
-      if (formula.trim()) {
-        renderedElements.push(
-          <View key={`math-${i}`} style={styles.mathBlock}>
-            <Text style={styles.mathText}>{formula}</Text>
-          </View>
-        );
-      }
-      mathBlockLines = [];
-      continue;
-    }
-
-    if (inMathBlock) {
-      mathBlockLines.push(trimmed);
-      continue;
-    }
-
-    // Handle single-line math block e.g. "\[ formula \]" or "[ formula ]" containing math syntax
-    if (
-      /^\\\[.*\\\]$/.test(trimmed) ||
-      (/^\[.*\]$/.test(trimmed) && /\\(text|frac|approx|times|cdot|sqrt|pm|boxed)/.test(trimmed))
-    ) {
-      const formula = cleanLatexMath(trimmed);
-      if (formula.trim()) {
-        renderedElements.push(
-          <View key={`math-single-${i}`} style={styles.mathBlock}>
-            <Text style={styles.mathText}>{formula}</Text>
-          </View>
-        );
-      }
+    // Ignore standalone display math delimiter lines (\[, \], $$, \(, \))
+    if (/^(\\\[|\\\]|\$\$|\\\(|\\\)|\[|\])$/.test(trimmed)) {
       continue;
     }
 
@@ -198,16 +160,6 @@ export const MarkdownView: React.FC<MarkdownViewProps> = React.memo(({ content, 
     );
   }
 
-  // Handle trailing unclosed math block (e.g. while actively streaming)
-  if (inMathBlock && mathBlockLines.length > 0) {
-    const formula = cleanLatexMath(mathBlockLines.join(' '));
-    if (formula.trim()) {
-      renderedElements.push(
-        <View key="math-unclosed" style={styles.mathBlock}>
-          <Text style={styles.mathText}>{formula}</Text>
-        </View>
-      );
-    }
   }
 
   return <View style={styles.container}>{renderedElements}</View>;
@@ -299,6 +251,17 @@ export function cleanLatexMath(str: string): string {
     cleaned = cleaned.replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, '($1 / $2)');
   }
 
+  // 4. Strip LaTeX spacing commands: \! \, \; \: \quad \qquad (e.g. ₹1,\! 000 -> ₹1, 000)
+  cleaned = cleaned.replace(/\\(!|,|;|:|quad|qquad)/g, '');
+
+  // 5. Clean escaped dollar signs and currency collisions (e.g. ₹$750$ -> ₹750)
+  cleaned = cleaned.replace(/\\\$/g, '$');
+  cleaned = cleaned.replace(/₹\s*\$+/g, '₹').replace(/\$+\s*₹/g, '₹');
+  cleaned = cleaned.replace(/\${2,}/g, '$');
+  cleaned = cleaned.replace(/(₹\s*\d+)\$/g, '$1');
+  cleaned = cleaned.replace(/=\s*\$(\d+)\$/g, '= $1');
+  cleaned = cleaned.replace(/=\s*\$(\d+)/g, '= $1');
+
   return cleaned
     .replace(/\\approx/g, '≈')
     .replace(/\\times/g, '×')
@@ -308,8 +271,7 @@ export function cleanLatexMath(str: string): string {
     .replace(/\\neq?/g, '≠')
     .replace(/\\pm/g, '±')
     .replace(/\\sqrt\{([^{}]+)\}/g, '√($1)')
-    .replace(/\\circ/g, '°')
-    .replace(/\\\$/g, '$');
+    .replace(/\\circ/g, '°');
 }
 
 function cleanEscapes(str: string): string {
@@ -451,21 +413,5 @@ const styles = StyleSheet.create({
   },
   lineSpacer: {
     height: 6
-  },
-  mathBlock: {
-    backgroundColor: '#141417',
-    borderLeftWidth: 3,
-    borderLeftColor: '#38BDF8',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
-    marginVertical: 6
-  },
-  mathText: {
-    color: '#38BDF8',
-    fontSize: 14,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    fontWeight: '600',
-    lineHeight: 20
   }
 });

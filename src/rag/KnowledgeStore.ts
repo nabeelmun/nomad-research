@@ -83,16 +83,18 @@ export class KnowledgeStore {
       'be', 'been', 'has', 'have', 'had', 'do', 'does', 'did', 'but', 'not', 'what',
       'where', 'when', 'who', 'how', 'why', 'can', 'could', 'will', 'would', 'should',
       'top', 'best', 'good', 'list', 'tell', 'show', 'give', 'about', 'some', 'any',
-      'near', 'all', 'out', 'here', 'there', 'please', 'know', 'make', 'more'
+      'near', 'all', 'out', 'here', 'there', 'please', 'know', 'make', 'more',
+      'buy', 'bought', 'spend', 'spent', 'cost', 'price', 'left', 'remaining',
+      'total', 'money', 'rupees', 'rupee', 'dollars', 'dollar'
     ]);
 
-    // Extract substantive content terms
+    // Extract substantive content terms (filter numbers and common stop words)
     const tokens = query
       .replace(/[^a-zA-Z0-9\s]/g, ' ')
       .trim()
       .split(/\s+/)
       .map(w => w.toLowerCase())
-      .filter(w => w.length > 2 && !stopWords.has(w));
+      .filter(w => w.length > 2 && !stopWords.has(w) && !/^\d+$/.test(w));
 
     if (tokens.length === 0) return [];
 
