@@ -1,4 +1,5 @@
 import * as FileSystem from 'expo-file-system';
+import { Platform } from 'react-native';
 import { initLlama, LlamaContext } from 'llama.rn';
 
 export interface GenerationMetrics {
@@ -23,7 +24,7 @@ export class LlamaEngine {
 
   /**
    * Automatically discovers and initializes an available GGUF model.
-   * Checks both app internal storage and external Download directory.
+   * Checks app internal storage, iOS Files directory, and external Download directory.
    */
   async autoInitialize(): Promise<boolean> {
     if (this.context) return true;
@@ -31,6 +32,8 @@ export class LlamaEngine {
     const candidatePaths = [
       `${FileSystem.documentDirectory}models/Llama-3.2-3B-Instruct-Q4_K_M.gguf`,
       `${FileSystem.documentDirectory}models/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf`,
+      `${FileSystem.documentDirectory}Llama-3.2-3B-Instruct-Q4_K_M.gguf`,
+      `${FileSystem.documentDirectory}Qwen2.5-1.5B-Instruct-Q4_K_M.gguf`,
       'file:///sdcard/Download/Llama-3.2-3B-Instruct-Q4_K_M.gguf',
       'file:///sdcard/Download/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf'
     ];
@@ -75,7 +78,7 @@ export class LlamaEngine {
         use_mlock: true,
         n_ctx: contextSize,
         n_threads: threads,
-        n_gpu_layers: 0 // CPU inference optimized for mobile thermal stability
+        n_gpu_layers: Platform.OS === 'ios' ? 99 : 0 // Metal GPU acceleration on iOS, CPU on Android
       });
 
       this.currentConfig = {

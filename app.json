@@ -16,6 +16,17 @@
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE"
       ]
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "xyz.nomad.research",
+      "infoPlist": {
+        "UIFileSharingEnabled": true,
+        "LSSupportsOpeningDocumentsInPlace": true
+      },
+      "entitlements": {
+        "com.apple.developer.kernel.increased-memory-limit": true
+      }
     }
   }
 }
