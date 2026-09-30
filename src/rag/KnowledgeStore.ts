@@ -13,6 +13,15 @@ export interface SearchResult {
   score: number;
 }
 
+export interface SavedChat {
+  id: string;
+  query: string;
+  answer: string;
+  citationsJson: string;
+  metrics: string;
+  createdAt: number;
+}
+
 export class KnowledgeStore {
   private db: SQLite.SQLiteDatabase | null = null;
 
@@ -35,6 +44,15 @@ export class KnowledgeStore {
         content,
         content='articles',
         content_rowid='rowid'
+      );
+
+      CREATE TABLE IF NOT EXISTS chat_history (
+        id TEXT PRIMARY KEY,
+        query TEXT NOT NULL,
+        answer TEXT NOT NULL,
+        citations_json TEXT NOT NULL,
+        metrics TEXT,
+        created_at INTEGER NOT NULL
       );
     `);
 
@@ -94,6 +112,43 @@ export class KnowledgeStore {
       [title]
     );
     return row ? row.content : null;
+  }
+
+  async saveChat(query: string, answer: string, citationsJson: string, metrics: string = ''): Promise<string> {
+    if (!this.db) await this.initialize();
+    const id = Date.now().toString();
+    try {
+      await this.db!.runAsync(
+        'INSERT INTO chat_history (id, query, answer, citations_json, metrics, created_at) VALUES (?, ?, ?, ?, ?, ?);',
+        [id, query, answer, citationsJson, metrics, Date.now()]
+      );
+    } catch (e) {
+      console.warn('Failed to save chat to history:', e);
+    }
+    return id;
+  }
+
+  async getChatHistory(limit: number = 30): Promise<SavedChat[]> {
+    if (!this.db) await this.initialize();
+    try {
+      const rows = await this.db!.getAllAsync<any>(
+        'SELECT id, query, answer, citations_json as citationsJson, metrics, created_at as createdAt FROM chat_history ORDER BY created_at DESC LIMIT ?;',
+        [limit]
+      );
+      return rows;
+    } catch (e) {
+      console.warn('Failed to fetch chat history:', e);
+      return [];
+    }
+  }
+
+  async deleteChat(id: string): Promise<void> {
+    if (!this.db) await this.initialize();
+    try {
+      await this.db!.runAsync('DELETE FROM chat_history WHERE id = ?;', [id]);
+    } catch (e) {
+      console.warn('Failed to delete chat:', e);
+    }
   }
 
   private async populateSeedCorpus(): Promise<void> {

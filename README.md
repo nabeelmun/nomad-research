@@ -22,6 +22,12 @@
 * **Dual Setup Modes Supported:**
   1. **1-Tap In-App Download:** Streamlined on first launch over Wi-Fi with step-by-step progress tracking.
   2. **Zero-Network USB Sideload:** Users can also transfer models and databases directly to `/sdcard/Download/` via USB cable to bypass network usage entirely.
+* **Refined Terminal UX & Memory Management:**
+  * **Persistent Offline Chat History:** Past research sessions are automatically indexed in a local SQLite store (`🕒 History`), allowing instant session review and restoration anytime.
+  * **Interactive Generation Control:** Real-time `■ STOP` button to halt inference midway at any point.
+  * **Smart Scroll Control:** Automatically pauses token auto-scrolling when reading earlier paragraphs, with an interactive floating pill to resume to bottom on demand.
+  * **Keyboard-Aware Input:** Native `KeyboardAvoidingView` keeps the search and terminal input box visible and elevated above the software keyboard.
+
 
 ---
 
