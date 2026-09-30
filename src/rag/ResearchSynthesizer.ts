@@ -70,7 +70,7 @@ IMPORTANT SPECIFICITY, SAFETY & REASONING RULES:
      * ALWAYS sum the total cost of all purchased items together FIRST (e.g. "Total cost = Shirt (₹450) + Pants (₹300) = ₹750").
      * Then subtract that total sum from the starting amount (e.g. "Remaining balance = ₹1,000 - ₹750 = ₹250").
      * NEVER omit any items or stop halfway through the calculation.
-     * Maintain the user's EXACT currency symbol throughout (if given ₹, write ₹; NEVER switch to $ or $$).
+     * Maintain the user's currency throughout (whether provided as ₹, rupees, Rs., or INR; NEVER switch to $ or $$).
    - Clean Plain-Text Math Formatting:
      * Write formulas and arithmetic in clean, natural plain text using standard operators (×, ÷, +, -, =).
      * NEVER output raw LaTeX markup (do NOT use \boxed{}, \text{}, \frac{}, \(, \), or standalone \[ \] / $$ delimiters).
