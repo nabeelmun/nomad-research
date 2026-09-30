@@ -30,12 +30,12 @@ export class LlamaEngine {
     if (this.context) return true;
 
     const candidatePaths = [
-      `${FileSystem.documentDirectory}models/Llama-3.2-3B-Instruct-Q4_K_M.gguf`,
       `${FileSystem.documentDirectory}models/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf`,
-      `${FileSystem.documentDirectory}Llama-3.2-3B-Instruct-Q4_K_M.gguf`,
       `${FileSystem.documentDirectory}Qwen2.5-1.5B-Instruct-Q4_K_M.gguf`,
-      'file:///sdcard/Download/Llama-3.2-3B-Instruct-Q4_K_M.gguf',
-      'file:///sdcard/Download/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf'
+      'file:///sdcard/Download/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf',
+      `${FileSystem.documentDirectory}models/Llama-3.2-3B-Instruct-Q4_K_M.gguf`,
+      `${FileSystem.documentDirectory}Llama-3.2-3B-Instruct-Q4_K_M.gguf`,
+      'file:///sdcard/Download/Llama-3.2-3B-Instruct-Q4_K_M.gguf'
     ];
 
     for (const p of candidatePaths) {
@@ -102,7 +102,12 @@ export class LlamaEngine {
   async generateCompletion(
     prompt: string,
     onToken: (token: string) => void,
-    onMetrics?: (metrics: GenerationMetrics) => void
+    onMetrics?: (metrics: GenerationMetrics) => void,
+    options?: {
+      maxTokens?: number;
+      temperature?: number;
+      topP?: number;
+    }
   ): Promise<string> {
     if (!this.context) {
       throw new Error('Llama model is not loaded. Please load a model first.');
@@ -122,9 +127,9 @@ export class LlamaEngine {
       await this.context.completion(
         {
           prompt,
-          n_predict: 1024,
-          temperature: 0.6,
-          top_p: 0.9,
+          n_predict: options?.maxTokens ?? 512,
+          temperature: options?.temperature ?? 0.5,
+          top_p: options?.topP ?? 0.9,
           penalty_repeat: 1.18,
           penalty_last_n: 128,
           penalty_present: 0.3,

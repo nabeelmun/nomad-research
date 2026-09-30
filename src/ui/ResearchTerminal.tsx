@@ -19,7 +19,7 @@ import {
   Clipboard,
   Keyboard
 } from 'react-native';
-import { researchSynthesizer, ResearchCitation, ChatMessage } from '../rag/ResearchSynthesizer';
+import { researchSynthesizer, ResearchCitation, ChatMessage, ResearchMode } from '../rag/ResearchSynthesizer';
 import { llamaEngine } from '../inference/LlamaEngine';
 import { knowledgeStore, SavedChat } from '../rag/KnowledgeStore';
 import { MarkdownView } from './MarkdownView';
@@ -28,6 +28,9 @@ export default function ResearchTerminal() {
   const [query, setQuery] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [statusText, setStatusText] = useState('System Ready (Offline)');
+
+  // Active Research Mode: 'instant' (fast & concise), 'balanced' (standard), 'deep' (highly descriptive)
+  const [activeMode, setActiveMode] = useState<ResearchMode>('balanced');
 
   // Active Multi-turn Session ID
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -167,7 +170,8 @@ export default function ResearchTerminal() {
             scrollViewRef.current?.scrollToEnd({ animated: true });
           }
         },
-        (status) => setStatusText(status)
+        (status) => setStatusText(status),
+        activeMode
       );
 
       setActiveCitations(res.citations);
@@ -615,6 +619,48 @@ export default function ResearchTerminal() {
             {isGenerating && <ActivityIndicator size="small" color="#10B981" style={{ marginRight: 6 }} />}
             <Text style={styles.statusLabel}>{statusText}</Text>
           </View>
+        </View>
+
+        {/* 3 Response Modes: Instant (Fast), Balanced (Standard), Deep (Descriptive) */}
+        <View style={styles.modeBar}>
+          <TouchableOpacity
+            style={[styles.modePill, activeMode === 'instant' && styles.modePillActiveInstant]}
+            onPress={() => setActiveMode('instant')}
+            disabled={isGenerating}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.modePillIcon}>⚡</Text>
+            <View style={styles.modeTextCol}>
+              <Text style={[styles.modePillText, activeMode === 'instant' && styles.modePillTextActiveInstant]}>Instant</Text>
+              <Text style={styles.modePillSubtext}>Short & Fast</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.modePill, activeMode === 'balanced' && styles.modePillActiveBalanced]}
+            onPress={() => setActiveMode('balanced')}
+            disabled={isGenerating}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.modePillIcon}>⚖️</Text>
+            <View style={styles.modeTextCol}>
+              <Text style={[styles.modePillText, activeMode === 'balanced' && styles.modePillTextActiveBalanced]}>Balanced</Text>
+              <Text style={styles.modePillSubtext}>Standard</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.modePill, activeMode === 'deep' && styles.modePillActiveDeep]}
+            onPress={() => setActiveMode('deep')}
+            disabled={isGenerating}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.modePillIcon}>📚</Text>
+            <View style={styles.modeTextCol}>
+              <Text style={[styles.modePillText, activeMode === 'deep' && styles.modePillTextActiveDeep]}>Deep</Text>
+              <Text style={styles.modePillSubtext}>Detailed</Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Input Bar */}
@@ -1470,5 +1516,66 @@ const styles = StyleSheet.create({
     color: '#71717A',
     fontSize: 10,
     marginTop: 2
+  },
+  modeBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    backgroundColor: '#0C0C0F',
+    borderTopWidth: 1,
+    borderTopColor: '#1A1A22',
+    gap: 8
+  },
+  modePill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+    backgroundColor: '#16161A',
+    borderWidth: 1,
+    borderColor: '#26262E',
+    gap: 5
+  },
+  modeTextCol: {
+    alignItems: 'flex-start'
+  },
+  modePillActiveInstant: {
+    backgroundColor: 'rgba(234, 179, 8, 0.12)',
+    borderColor: '#EAB308'
+  },
+  modePillActiveBalanced: {
+    backgroundColor: 'rgba(0, 240, 255, 0.10)',
+    borderColor: '#00F0FF'
+  },
+  modePillActiveDeep: {
+    backgroundColor: 'rgba(168, 85, 247, 0.12)',
+    borderColor: '#A855F7'
+  },
+  modePillIcon: {
+    fontSize: 13
+  },
+  modePillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#A1A1AA'
+  },
+  modePillTextActiveInstant: {
+    color: '#FACC15'
+  },
+  modePillTextActiveBalanced: {
+    color: '#00F0FF'
+  },
+  modePillTextActiveDeep: {
+    color: '#C084FC'
+  },
+  modePillSubtext: {
+    fontSize: 8,
+    color: '#71717A',
+    fontWeight: '500'
   }
 });

@@ -17,6 +17,44 @@ export interface ChatMessage {
   createdAt: number;
 }
 
+export type ResearchMode = 'instant' | 'balanced' | 'deep';
+
+export interface ResearchModeConfig {
+  id: ResearchMode;
+  name: string;
+  icon: string;
+  tagline: string;
+  maxTokens: number;
+  temperature: number;
+}
+
+export const RESEARCH_MODES: Record<ResearchMode, ResearchModeConfig> = {
+  instant: {
+    id: 'instant',
+    name: 'Instant',
+    icon: '⚡',
+    tagline: 'Short & fast direct answer',
+    maxTokens: 256,
+    temperature: 0.3
+  },
+  balanced: {
+    id: 'balanced',
+    name: 'Balanced',
+    icon: '⚖️',
+    tagline: 'Standard structured depth',
+    maxTokens: 512,
+    temperature: 0.5
+  },
+  deep: {
+    id: 'deep',
+    name: 'Deep',
+    icon: '📚',
+    tagline: 'High descriptive & detailed analysis',
+    maxTokens: 1280,
+    temperature: 0.7
+  }
+};
+
 export interface ResearchResult {
   query: string;
   answer: string;
@@ -29,7 +67,8 @@ export class ResearchSynthesizer {
     query: string,
     history: ChatMessage[] = [],
     onTokenChunk: (token: string) => void,
-    onStatusUpdate?: (status: string) => void
+    onStatusUpdate?: (status: string) => void,
+    mode: ResearchMode = 'balanced'
   ): Promise<ResearchResult> {
     onStatusUpdate?.('Scanning local offline knowledge store...');
     const searchResults: SearchResult[] = await knowledgeStore.search(query, 3);
@@ -49,9 +88,31 @@ export class ResearchSynthesizer {
       ).join('\n\n') + '\n\n';
     }
 
+    let modeInstruction = '';
+    if (mode === 'instant') {
+      modeInstruction = `
+6. RESPONSE MODE: INSTANT & CONCISE
+   - Deliver the direct answer or solution immediately in the first sentence.
+   - Keep the answer strictly under 120 words.
+   - Use short bullet points for key facts, numbers, or immediate actions.
+   - Omit all conversational greetings, lengthy preambles, and concluding filler.`;
+    } else if (mode === 'deep') {
+      modeInstruction = `
+6. RESPONSE MODE: HIGHLY DESCRIPTIVE & DEEP ANALYSIS
+   - Provide an exhaustive, deeply analytical, and highly descriptive synthesis.
+   - Break down core mechanisms, foundational principles, theoretical proofs, historical context, and edge cases.
+   - Use structured Markdown subheadings (###) and detailed numbered steps to provide a thorough exploration.
+   - Extensively ground facts in the reference material and provide rich, comprehensive reasoning.`;
+    } else {
+      modeInstruction = `
+6. RESPONSE MODE: BALANCED & STRUCTURED
+   - Provide a clear, well-proportioned explanation with balanced technical depth.
+   - Include step-by-step instructions where appropriate and key grounded citations.`;
+    }
+
     const systemPrompt = `<|im_start|>system
 You are NomadLM, an advanced offline scientific and research assistant running natively on mobile hardware without network access.
-Your goal is to provide deep, analytical, well-reasoned explanations, comparisons, and syntheses based on the provided reference material, past conversation context, and your internal reasoning.
+Your goal is to provide analytical, well-reasoned explanations, comparisons, and syntheses based on the provided reference material, past conversation context, and your internal reasoning.
 Cite your sources using bracketed numbers like [1] or [2] whenever referencing specific facts from the grounded references.
 
 IMPORTANT SPECIFICITY, SAFETY & REASONING RULES:
@@ -82,7 +143,8 @@ IMPORTANT SPECIFICITY, SAFETY & REASONING RULES:
      * Double-check every subtraction and multiplication digit-by-digit before outputting the final answer.
 5. CITATION INTEGRITY:
    - Cite bracketed numbers like [1] or [2] ONLY when referencing specific facts from the Grounded Offline References above. If Grounded Offline References is empty, answer directly using factual reasoning and DO NOT invent bracketed citation numbers.
-Be concise, structured, and factual.<|im_end|>
+${modeInstruction}
+Be factual, grounded, and adhere strictly to the selected response mode.<|im_end|>
 `;
 
     // Multi-turn context: roll last 4 messages (2 exchanges) to maintain conversational memory within mobile context limit
@@ -108,11 +170,17 @@ ${contextBlock}Research Question: ${query}<|im_end|>
       durationMs: 0
     };
 
+    const modeConfig = RESEARCH_MODES[mode] || RESEARCH_MODES.balanced;
+
     const answer = await llamaEngine.generateCompletion(
       fullPrompt,
       onTokenChunk,
       (metrics) => {
         capturedMetrics = metrics;
+      },
+      {
+        maxTokens: modeConfig.maxTokens,
+        temperature: modeConfig.temperature
       }
     );
 

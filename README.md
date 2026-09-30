@@ -12,15 +12,18 @@
 ## 📌 Project Status & Verified Data Footprint
 
 * **Online-Once Setup → 100% Offline Research:** The app includes a modern First-Launch Setup Wizard that downloads the GGUF model and SQLite databases directly on-device over Wi-Fi with live progress tracking (no PC or USB cable required). Once installed, the app operates 100% in Airplane Mode with zero network calls.
-* **Inference Core Options:**
-  * **Standard Research Pack (Recommended):** `Llama-3.2-3B-Instruct` (`Q4_K_M`, ~1.92 GB) operating within a ~2.4 GB – 2.8 GB active RAM budget.
-  * **Lightweight Pack:** `Qwen2.5-1.5B-Instruct` (`Q4_K_M`, ~940 MB) for rapid inference on devices with 4GB–6GB RAM.
-* **Offline Knowledge Store:** Dual-layer compressed SQLite database (~4.95 GB total):
+* **High-Speed Neural Reasoning Core:**
+  * Powered by `Qwen2.5-1.5B-Instruct` (`Q4_K_M`, ~940 MB) — delivering blazing inference speed (~15–25 tokens/sec) with zero RAM pressure on devices with 4GB–12GB RAM.
+* **Offline Encyclopedic Knowledge Store:**
   * **`voyage.db` (313.6 MB):** Complete Wikivoyage global collection covering **34,004 travel articles** and **549,160 searchable places** (cities, sights, restaurants, and hotels worldwide).
-  * **`wiki_core.db` (4.62 GB):** Top **120,000 most-viewed English Wikipedia articles** from the FineWiki corpus, indexed with **4,645,950 searchable text chunks** and full redirect tables.
-* **Total Phone Footprint:** **~2.2 GB** (Standard Pack) or **~7.0 GB** (Full Dual Store), leaving ample headroom on standard 20 GB phone storage partitions.
+  * **`wiki_core.db` (213.6 MB):** Curated Wikipedia Core knowledge base indexed with top global history, science, geography, and computer science / cryptography benchmark literature.
+* **Total Phone Footprint:** **~1.47 GB** total download, installing in under 2 minutes over standard Wi-Fi and leaving virtually zero strain on device storage.
+* **3 Dynamic Response Modes:**
+  * **⚡ Instant (Short & Fast):** Direct, punchy answers with compact bullet points, capped at 256 tokens for near-instant 3-second responses.
+  * **⚖️ Balanced (Standard Depth):** Proportioned explanation with structured procedural steps and grounded citations (512 tokens).
+  * **📚 Deep (Detailed Analysis):** Comprehensive, multi-dimensional treatises exploring theoretical underpinnings, nuances, and complete context (1,280 tokens).
 * **Dual Setup Modes Supported:**
-  1. **1-Tap In-App Download:** Streamlined on first launch over Wi-Fi with step-by-step progress tracking.
+  1. **1-Tap In-App Download:** Streamlined 3-step installer on first launch with live percentage and MB progress indicators.
   2. **Zero-Network USB Sideload:** Users can also transfer models and databases directly to `/sdcard/Download/` via USB cable to bypass network usage entirely.
 * **Refined Terminal UX & Conversational Engine:**
   * **Multi-Turn Conversational Memory:** Maintains ongoing discussion context across follow-up questions completely offline with automatic rolling context window management.

@@ -31,34 +31,21 @@ interface DownloadPackage {
     url: string;
     sizeMb: number;
   };
+  wiki: {
+    name: string;
+    filename: string;
+    url: string;
+    sizeMb: number;
+  };
 }
 
 const PACKAGES: DownloadPackage[] = [
   {
-    id: 'standard-3b',
-    name: 'Standard Research Pack',
-    tagline: 'Llama-3.2 3B reasoning + Complete Wikivoyage travel corpus',
-    badge: 'RECOMMENDED (8GB+ RAM)',
-    totalSizeMb: 2239,
-    model: {
-      name: 'Llama-3.2-3B-Instruct (Q4_K_M)',
-      filename: 'Llama-3.2-3B-Instruct-Q4_K_M.gguf',
-      url: 'https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf',
-      sizeMb: 1926
-    },
-    corpus: {
-      name: 'Wikivoyage World Travel Pack (549k places)',
-      filename: 'voyage.db',
-      url: 'https://github.com/nabeelmun/nomad-research/releases/download/v1.0.0/voyage.db',
-      sizeMb: 313
-    }
-  },
-  {
-    id: 'lightweight-1.5b',
-    name: 'Lightweight Pack',
-    tagline: 'Qwen2.5 1.5B ultra-fast inference + Complete travel corpus',
-    badge: 'FASTEST DOWNLOAD (4GB+ RAM)',
-    totalSizeMb: 1253,
+    id: 'qwen-1.5b',
+    name: 'NomadLM High-Speed Research Pack',
+    tagline: 'Qwen2.5 1.5B Ultra-Fast Neural Core + Wikivoyage Travel + Wikipedia Core',
+    badge: 'OPTIMIZED & FAST (4GB+ RAM)',
+    totalSizeMb: 1467,
     model: {
       name: 'Qwen2.5-1.5B-Instruct (Q4_K_M)',
       filename: 'Qwen2.5-1.5B-Instruct-Q4_K_M.gguf',
@@ -68,8 +55,14 @@ const PACKAGES: DownloadPackage[] = [
     corpus: {
       name: 'Wikivoyage World Travel Pack (549k places)',
       filename: 'voyage.db',
-      url: 'https://github.com/nabeelmun/nomad-research/releases/download/v1.0.0/voyage.db',
+      url: 'https://github.com/nabeelmun/nomad-research/releases/download/v1.1.0/voyage.db',
       sizeMb: 313
+    },
+    wiki: {
+      name: 'Wikipedia Core Knowledge Base (2.5k+ core articles)',
+      filename: 'wiki_core.db',
+      url: 'https://github.com/nabeelmun/nomad-research/releases/download/v1.1.0/wiki_core.db',
+      sizeMb: 214
     }
   }
 ];
@@ -79,7 +72,7 @@ interface SetupWizardProps {
 }
 
 export default function SetupWizardScreen({ onComplete }: SetupWizardProps) {
-  const [selectedPkgId, setSelectedPkgId] = useState<string>('standard-3b');
+  const [selectedPkgId, setSelectedPkgId] = useState<string>('qwen-1.5b');
   const [isDownloading, setIsDownloading] = useState<boolean>(false);
   const [currentStep, setCurrentStep] = useState<string>('');
   const [progressPercent, setProgressPercent] = useState<number>(0);
@@ -101,7 +94,7 @@ export default function SetupWizardScreen({ onComplete }: SetupWizardProps) {
       await FileSystem.makeDirectoryAsync(dataDir, { intermediates: true });
 
       // Step 1: Download Corpus (Wikivoyage)
-      setCurrentStep(`[1/2] Downloading ${activePackage.corpus.name}...`);
+      setCurrentStep(`[1/3] Downloading ${activePackage.corpus.name}...`);
       setTotalExpectedMb(activePackage.corpus.sizeMb);
       setProgressPercent(0);
       setDownloadedMb(0);
@@ -123,8 +116,31 @@ export default function SetupWizardScreen({ onComplete }: SetupWizardProps) {
 
       await corpusDownloader.downloadAsync();
 
-      // Step 2: Download Model
-      setCurrentStep(`[2/2] Downloading ${activePackage.model.name}...`);
+      // Step 2: Download Wikipedia Core Knowledge Base
+      setCurrentStep(`[2/3] Downloading ${activePackage.wiki.name}...`);
+      setTotalExpectedMb(activePackage.wiki.sizeMb);
+      setProgressPercent(0);
+      setDownloadedMb(0);
+
+      const wikiDest = `${dataDir}${activePackage.wiki.filename}`;
+      const wikiDownloader = FileSystem.createDownloadResumable(
+        activePackage.wiki.url,
+        wikiDest,
+        {},
+        (dp) => {
+          const writtenMb = Math.round(dp.totalBytesWritten / (1024 * 1024));
+          const totalMb = Math.round(dp.totalBytesExpectedToWrite / (1024 * 1024)) || activePackage.wiki.sizeMb;
+          const pct = Math.round((dp.totalBytesWritten / dp.totalBytesExpectedToWrite) * 100) || 0;
+          setDownloadedMb(writtenMb);
+          setTotalExpectedMb(totalMb);
+          setProgressPercent(pct);
+        }
+      );
+
+      await wikiDownloader.downloadAsync();
+
+      // Step 3: Download Model
+      setCurrentStep(`[3/3] Downloading ${activePackage.model.name}...`);
       setTotalExpectedMb(activePackage.model.sizeMb);
       setProgressPercent(0);
       setDownloadedMb(0);
