@@ -53,25 +53,6 @@ export default function ResearchTerminal() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [chatHistory, setChatHistory] = useState<SavedChat[]>([]);
 
-  // Active Location (Offline City Resolver)
-  const [currentCity, setCurrentCity] = useState('Kochi');
-
-  const handleSelectCityPrompt = () => {
-    Alert.alert(
-      'Active Offline Location',
-      'Select or switch your current city for offline location-aware travel & dining queries:',
-      [
-        { text: '📍 Kochi, India', onPress: () => setCurrentCity('Kochi') },
-        { text: '📍 Lisbon, Portugal', onPress: () => setCurrentCity('Lisbon') },
-        { text: '📍 Tokyo, Japan', onPress: () => setCurrentCity('Tokyo') },
-        { text: '📍 London, UK', onPress: () => setCurrentCity('London') },
-        { text: '📍 Paris, France', onPress: () => setCurrentCity('Paris') },
-        { text: '📍 New York, USA', onPress: () => setCurrentCity('New York') },
-        { text: 'Cancel', style: 'cancel' }
-      ]
-    );
-  };
-
   // Safe In-App Clipboard & Share Handling
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
 
@@ -147,13 +128,6 @@ export default function ResearchTerminal() {
       scrollViewRef.current?.scrollToEnd({ animated: true });
     }, 50);
 
-    // Location context expansion for local/nearby queries
-    let effectiveQuery = q;
-    const locationTriggers = [/current city/i, /city i'?m in/i, /near me/i, /where i am/i, /\[your current city\]/i];
-    if (locationTriggers.some(re => re.test(q))) {
-      effectiveQuery = `${q} (Location: ${currentCity})`;
-    }
-
     try {
       if (!llamaEngine.isLoaded()) {
         setStatusText('Searching local offline knowledge store...');
@@ -161,7 +135,7 @@ export default function ResearchTerminal() {
 
       let generatedAnswer = '';
       const res = await researchSynthesizer.executeResearch(
-        effectiveQuery,
+        q,
         updatedMessages,
         (token) => {
           generatedAnswer += token;
@@ -402,28 +376,6 @@ export default function ResearchTerminal() {
                 <Text style={styles.offlineTag}>OFFLINE</Text>
               </View>
             </View>
-          </View>
-
-          <View style={styles.headerRight}>
-            <TouchableOpacity
-              style={styles.locationHeaderBtn}
-              onPress={handleSelectCityPrompt}
-              activeOpacity={0.7}
-              disabled={isGenerating}
-            >
-              <Text style={styles.locationHeaderIcon}>📍</Text>
-              <Text style={styles.locationHeaderText}>{currentCity}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.newChatHeaderBtn}
-              onPress={handleNewChat}
-              activeOpacity={0.7}
-              disabled={isGenerating}
-            >
-              <Text style={styles.newChatHeaderIcon}>➕</Text>
-              <Text style={styles.newChatHeaderText}>New</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -897,49 +849,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.5
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8
-  },
-  locationHeaderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#18181B',
-    borderWidth: 1,
-    borderColor: '#27272A',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8
-  },
-  locationHeaderIcon: {
-    fontSize: 11
-  },
-  locationHeaderText: {
-    color: '#38BDF8',
-    fontSize: 12,
-    fontWeight: '600'
-  },
-  newChatHeaderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#18181B',
-    borderWidth: 1,
-    borderColor: '#27272A',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8
-  },
-  newChatHeaderIcon: {
-    fontSize: 12
-  },
-  newChatHeaderText: {
-    color: '#FAFAFA',
-    fontSize: 12,
-    fontWeight: '600'
   },
   terminalWrapper: {
     flex: 1,

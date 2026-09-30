@@ -21,7 +21,9 @@
       "permissions": [
         "INTERNET",
         "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "WRITE_EXTERNAL_STORAGE",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
       ]
     },
     "ios": {
@@ -29,7 +31,8 @@
       "bundleIdentifier": "xyz.nomad.research",
       "infoPlist": {
         "UIFileSharingEnabled": true,
-        "LSSupportsOpeningDocumentsInPlace": true
+        "LSSupportsOpeningDocumentsInPlace": true,
+        "NSLocationWhenInUseUsageDescription": "NomadLM uses your location to provide local research context when requested."
       }
     }
   }
