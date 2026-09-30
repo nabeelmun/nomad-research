@@ -8,7 +8,8 @@ import {
   SafeAreaView,
   StatusBar,
   ActivityIndicator,
-  Alert
+  Alert,
+  Image
 } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 
@@ -166,7 +167,14 @@ export default function SetupWizardScreen({ onComplete }: SetupWizardProps) {
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.logo}>⛺ NomadLM</Text>
+          <View style={styles.logoRow}>
+            <Image
+              source={require('../../assets/icon.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
+            <Text style={styles.logo}>NomadLM</Text>
+          </View>
           <Text style={styles.title}>Offline Setup Wizard</Text>
           <Text style={styles.subtitle}>
             Set up once over Wi-Fi. After this single initial download, the app works 100% in Airplane Mode with zero network calls.
@@ -285,12 +293,22 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 24
   },
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 8
+  },
+  logoImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 8
+  },
   logo: {
     fontSize: 28,
     fontWeight: '900',
     color: '#FFF',
-    letterSpacing: 1,
-    marginBottom: 6
+    letterSpacing: 1
   },
   title: {
     fontSize: 20,

@@ -64,12 +64,12 @@ export class KnowledgeStore {
       // Column may already exist
     }
 
-    // Check if seed data exists
+    // Check if seed data exists and has all 8 foundational articles
     const countResult = await this.db.getFirstAsync<{ count: number }>(
       'SELECT COUNT(*) as count FROM articles;'
     );
 
-    if (!countResult || countResult.count === 0) {
+    if (!countResult || countResult.count < 8) {
       await this.populateSeedCorpus();
     }
   }
@@ -123,6 +123,7 @@ export class KnowledgeStore {
   }
 
   async saveChat(
+    sessionId: string | null,
     query: string,
     answer: string,
     citationsJson: string,
@@ -130,11 +131,20 @@ export class KnowledgeStore {
     messagesJson: string = '[]'
   ): Promise<string> {
     if (!this.db) await this.initialize();
-    const id = Date.now().toString();
+    const id = sessionId || `session_${Date.now()}`;
+    const now = Date.now();
     try {
       await this.db!.runAsync(
-        'INSERT OR REPLACE INTO chat_history (id, query, answer, citations_json, metrics, messages_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?);',
-        [id, query, answer, citationsJson, metrics, messagesJson, Date.now()]
+        `INSERT INTO chat_history (id, query, answer, citations_json, metrics, messages_json, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           query = excluded.query,
+           answer = excluded.answer,
+           citations_json = excluded.citations_json,
+           metrics = excluded.metrics,
+           messages_json = excluded.messages_json,
+           created_at = excluded.created_at;`,
+        [id, query, answer, citationsJson, metrics, messagesJson, now]
       );
     } catch (e) {
       console.warn('Failed to save chat to history:', e);
@@ -211,6 +221,49 @@ Top recommended dining options:
 3. Vegan Nata (Rua dos Fanqueiros & Chiado): The quintessential Lisbon bakery offering certified palm-oil-free vegan pastéis de nata with crisp laminated pastry and caramelized custard.
 4. Ao 26 - Vegan Food Project (Chiado): Creative, artfully plated seasonal dishes including vegan cheese boards, bifana sandwiches, and chocolate hazelnut tart.
 5. Organi Chiado (Calçada Nova de São Francisco): Organic, whole-food seasonal menu with zero processed sugars, located below the steps of Chiado.`
+      },
+      {
+        id: 'car-jumpstart-safety',
+        title: 'Automotive Emergency Guide: Battery Jumpstart Procedure & Electrical Safety',
+        category: 'Emergency & Mechanics',
+        content: `Jumpstarting a dead vehicle battery requires strict procedural order to avoid hydrogen gas explosion and alternator diode damage.
+Equipment & Specifications: Standard 12-volt lead-acid automotive battery. Use jumper cables of at least 4 to 6 AWG (American Wire Gauge) with heavy-duty copper clamps.
+SAFETY HAZARDS: Lead-acid batteries produce volatile hydrogen gas during discharge. NEVER let the red and black clamps touch each other while connected to any terminal. Do NOT lean directly over the battery.
+EXACT CONNECTION ORDER:
+1. Park the booster vehicle close to the dead vehicle without letting the bumpers or bodies touch. Turn off both engines, headlights, and all electronics.
+2. Connect RED clamp (1st) to the POSITIVE (+) terminal of the DEAD battery.
+3. Connect RED clamp (2nd) to the POSITIVE (+) terminal of the BOOSTER (good) battery.
+4. Connect BLACK clamp (3rd) to the NEGATIVE (-) terminal of the BOOSTER (good) battery.
+5. Connect BLACK clamp (4th) to an unpainted, clean bare metal bolt or engine bracket on the DEAD vehicle, at least 18 inches away from the battery. NEVER connect to the dead battery's negative terminal (sparks can ignite hydrogen gas).
+STARTING SEQUENCE:
+6. Start the booster vehicle engine and let it run at 1,500–2,000 RPM for 3 to 5 minutes to transfer charge.
+7. Attempt to crank the dead vehicle for no more than 5 to 7 seconds. If it starts, let both vehicles idle together for 3 minutes.
+DISCONNECTION ORDER (Exact Reverse):
+8. Disconnect BLACK bare metal ground clamp from dead vehicle.
+9. Disconnect BLACK negative clamp from booster vehicle.
+10. Disconnect RED positive clamp from booster vehicle.
+11. Disconnect RED positive clamp from dead vehicle.
+12. Drive the revived vehicle continuously for at least 20 to 30 minutes at speeds above 30 mph to allow the alternator to recharge the battery to minimum 12.6V.`
+      },
+      {
+        id: 'spaghetti-aglio-olio',
+        title: 'Culinary Foundations: Authentic Spaghetti Aglio e Olio',
+        category: 'Culinary Arts',
+        content: `Spaghetti Aglio e Olio is a classic Neapolitan pasta dish dating to the 19th century, renowned for minimalist emulsification between starchy pasta water and extra virgin olive oil.
+EXACT QUANTITIES & RATIOS (Serves 2):
+- Spaghetti: 200g (durum wheat semolina)
+- Water: 2 liters brought to a rolling boil
+- Salt: 20g kosher salt (10g per liter, 1% salinity)
+- Extra virgin olive oil: 60ml (4 tablespoons), cold-pressed
+- Garlic: 4 to 5 medium cloves, sliced thinly or crushed
+- Red pepper flakes (Peperoncino): 1/2 teaspoon (1.5g)
+- Fresh flat-leaf parsley: 15g, finely minced
+EXACT PROCEDURAL STEPS & TIMINGS:
+1. Boiling: Add 20g salt to 2L boiling water. Cook 200g spaghetti for 7 to 8 minutes, removing 2 minutes before package 'al dente' time. Preserve 120ml (1/2 cup) of cloudy, starchy pasta cooking water.
+2. Infusion: In a wide pan over medium-low heat (approx 140°C / 285°F), add 60ml olive oil and sliced garlic. Sauté gently for 2 to 3 minutes until garlic turns pale straw-gold. WARNING: If garlic browns or burns, it turns bitter; immediately remove pan from heat if darkening occurs.
+3. Spice: Add 1/2 tsp red pepper flakes 30 seconds before removing from heat.
+4. Emulsification (Mantecatura): Transfer drained undercooked spaghetti into the pan. Pour 60ml of hot starchy pasta water. Toss and vigorously stir over medium heat for 60 to 90 seconds. The starch molecules bind the olive oil and water into a creamy, glossy glaze without needing cream or cheese.
+5. Finish: Turn off heat, toss in 15g minced parsley, and serve immediately at 65°C–70°C.`
       },
       {
         id: 'kyoto-travel-guide',

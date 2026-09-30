@@ -12,7 +12,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   Modal,
-  FlatList
+  FlatList,
+  Image,
+  Alert,
+  Share
 } from 'react-native';
 import { researchSynthesizer, ResearchCitation, ChatMessage } from '../rag/ResearchSynthesizer';
 import { llamaEngine } from '../inference/LlamaEngine';
@@ -23,6 +26,9 @@ export default function ResearchTerminal() {
   const [query, setQuery] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [statusText, setStatusText] = useState('System Ready (Offline)');
+
+  // Active Multi-turn Session ID
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
   // Multi-turn chat message thread
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -53,9 +59,10 @@ export default function ResearchTerminal() {
   }, []);
 
   const benchmarkPresets = [
+    { label: '📍 City I\'m in (Lisbon)', q: 'What are the best vegan and vegetarian dining spots and sights in Lisbon, Portugal?' },
     { label: 'STARKs vs SNARKs', q: 'Compare STARKs and SNARKs in terms of trusted setup, quantum resistance, and proof sizes.' },
-    { label: 'Lisbon Dining', q: 'What are the best vegan and vegetarian dining spots in Lisbon and what makes them special?' },
-    { label: 'Jumpstart a Car', q: 'How do I jumpstart a car if it is not starting? Step by step safety instructions.' },
+    { label: '🚗 Jumpstart Car', q: 'How do I jumpstart a car if it is not starting? Step by step safety instructions.' },
+    { label: '🍝 Aglio e Olio', q: 'How do I cook authentic Spaghetti Aglio e Olio? Exact ratios, temperatures, and emulsification steps.' },
     { label: '1973 Oil Shock', q: 'How did the 1973 oil embargo restructure Japanese industrial and microelectronics policy?' },
     { label: 'BFT Bound', q: 'Explain why Byzantine Fault Tolerance requires n >= 3f + 1 in asynchronous networks.' }
   ];
@@ -69,6 +76,12 @@ export default function ResearchTerminal() {
   const handleSearch = async (targetQuery?: string) => {
     const q = (targetQuery || query).trim();
     if (!q || isGenerating) return;
+
+    // Use or establish the active session ID so follow-ups update the same session
+    const sessionId = activeSessionId || `session_${Date.now()}`;
+    if (!activeSessionId) {
+      setActiveSessionId(sessionId);
+    }
 
     const userMsg: ChatMessage = {
       id: `u-${Date.now()}`,
@@ -132,8 +145,9 @@ export default function ResearchTerminal() {
       setMessages(finalMessages);
       setCurrentStreamingTokens('');
 
-      // Auto-save full multi-turn conversation thread into SQLite
+      // Auto-save full multi-turn conversation thread into SQLite under the SAME session ID
       await knowledgeStore.saveChat(
+        sessionId,
         updatedMessages[0]?.content || q,
         assistantMsg.content,
         JSON.stringify(res.citations),
@@ -161,6 +175,7 @@ export default function ResearchTerminal() {
         setActiveMetrics('⚡ Instant Local RAG (14ms retrieval)');
 
         await knowledgeStore.saveChat(
+          sessionId,
           updatedMessages[0]?.content || q,
           fallbackAnswer,
           JSON.stringify(fallbackCitations),
@@ -196,7 +211,9 @@ export default function ResearchTerminal() {
         setMessages(updated);
         setCurrentStreamingTokens('');
 
+        const sessionId = activeSessionId || `session_${Date.now()}`;
         await knowledgeStore.saveChat(
+          sessionId,
           messages[0]?.content || query,
           currentStreamingTokens,
           JSON.stringify(activeCitations),
@@ -211,6 +228,7 @@ export default function ResearchTerminal() {
 
   const handleNewChat = () => {
     if (isGenerating) return;
+    setActiveSessionId(null);
     setMessages([]);
     setCurrentStreamingTokens('');
     setQuery('');
@@ -223,6 +241,7 @@ export default function ResearchTerminal() {
   };
 
   const handleSelectHistoryItem = (item: SavedChat) => {
+    setActiveSessionId(item.id);
     if (item.messagesJson) {
       try {
         const parsed = JSON.parse(item.messagesJson);
@@ -271,9 +290,27 @@ export default function ResearchTerminal() {
     }, 100);
   };
 
+  const confirmDeleteHistoryItem = (item: SavedChat) => {
+    Alert.alert(
+      'Delete Session',
+      `Are you sure you want to delete this research session?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => handleDeleteHistoryItem(item.id)
+        }
+      ]
+    );
+  };
+
   const handleDeleteHistoryItem = async (id: string) => {
     await knowledgeStore.deleteChat(id);
     setChatHistory((prev) => prev.filter((c) => c.id !== id));
+    if (activeSessionId === id) {
+      handleNewChat();
+    }
   };
 
   const handleScrollToBottom = () => {
@@ -305,6 +342,11 @@ export default function ResearchTerminal() {
 
             <View style={styles.brandingCol}>
               <View style={styles.titleRow}>
+                <Image
+                  source={require('../../assets/icon.png')}
+                  style={styles.headerLogoImage}
+                  resizeMode="contain"
+                />
                 <Text style={styles.appTitle}>NomadLM</Text>
                 <View style={styles.offlineDot} />
                 <Text style={styles.offlineTag}>OFFLINE</Text>
@@ -367,7 +409,11 @@ export default function ResearchTerminal() {
             {messages.length === 0 && !isGenerating ? (
               <View style={styles.emptyState}>
                 <View style={styles.emptyIconBadge}>
-                  <Text style={styles.emptyIconEmoji}>⛺</Text>
+                  <Image
+                    source={require('../../assets/icon.png')}
+                    style={styles.emptyLogoImage}
+                    resizeMode="contain"
+                  />
                 </View>
                 <Text style={styles.emptyTitle}>Offline Encyclopedic Intelligence</Text>
                 <Text style={styles.emptyDesc}>
@@ -381,7 +427,7 @@ export default function ResearchTerminal() {
                     activeOpacity={0.7}
                   >
                     <Text style={styles.suggestCardTitle}>🚗 Jumpstart a Dead Car</Text>
-                    <Text style={styles.suggestCardSub}>Step-by-step terminal instructions</Text>
+                    <Text style={styles.suggestCardSub}>Grounded roadside safety & connection order</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -410,7 +456,11 @@ export default function ResearchTerminal() {
                       <View style={styles.assistantCard}>
                         <View style={styles.assistantCardHeader}>
                           <View style={styles.assistantAvatar}>
-                            <Text style={styles.assistantAvatarText}>⛺</Text>
+                            <Image
+                              source={require('../../assets/icon.png')}
+                              style={styles.assistantAvatarImage}
+                              resizeMode="contain"
+                            />
                           </View>
                           <Text style={styles.assistantCardTitle}>NomadLM</Text>
                           <View style={styles.groundedTag}>
@@ -447,6 +497,23 @@ export default function ResearchTerminal() {
                             </View>
                           </View>
                         )}
+
+                        {/* Action Bar (Share/Copy & Metrics) */}
+                        <View style={styles.assistantCardFooter}>
+                          <TouchableOpacity
+                            style={styles.copyBtn}
+                            onPress={() => Share.share({ message: msg.content })}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={styles.copyBtnText}>📋 Share / Copy</Text>
+                          </TouchableOpacity>
+
+                          {msg.metrics && msg.metrics.tokensPerSecond > 0 && (
+                            <Text style={styles.cardMetricsText}>
+                              ⚡ {msg.metrics.tokensPerSecond} tok/s • {msg.metrics.totalTokens} tokens
+                            </Text>
+                          )}
+                        </View>
                       </View>
                     )}
                   </View>
@@ -458,7 +525,11 @@ export default function ResearchTerminal() {
                     <View style={styles.assistantCard}>
                       <View style={styles.assistantCardHeader}>
                         <View style={styles.assistantAvatar}>
-                          <Text style={styles.assistantAvatarText}>⛺</Text>
+                          <Image
+                            source={require('../../assets/icon.png')}
+                            style={styles.assistantAvatarImage}
+                            resizeMode="contain"
+                          />
                         </View>
                         <Text style={styles.assistantCardTitle}>NomadLM</Text>
                         <ActivityIndicator size="small" color="#10B981" style={{ marginLeft: 8 }} />
@@ -578,7 +649,11 @@ export default function ResearchTerminal() {
             <View style={styles.drawerHeader}>
               <View style={styles.drawerBrand}>
                 <View style={styles.drawerBrandIconWrap}>
-                  <Text style={styles.drawerBrandIcon}>⛺</Text>
+                  <Image
+                    source={require('../../assets/icon.png')}
+                    style={styles.drawerLogoImage}
+                    resizeMode="contain"
+                  />
                 </View>
                 <View>
                   <Text style={styles.drawerBrandTitle}>NomadLM</Text>
@@ -641,7 +716,7 @@ export default function ResearchTerminal() {
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.historyDrawerDelete}
-                      onPress={() => handleDeleteHistoryItem(item.id)}
+                      onPress={() => confirmDeleteHistoryItem(item)}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
                       <Text style={styles.historyDeleteIcon}>🗑</Text>
@@ -655,8 +730,13 @@ export default function ResearchTerminal() {
             <View style={styles.drawerFooter}>
               <View style={styles.drawerStatusBadge}>
                 <View style={styles.statusDotLive} />
-                <Text style={styles.drawerStatusText}>Zero Network • Local SQLite</Text>
+                <Text style={styles.drawerStatusTitle}>
+                  {llamaEngine.getConfig()?.filename ? llamaEngine.getConfig()!.filename.replace('.gguf', '') : 'Qwen2.5-1.5B (Active)'}
+                </Text>
               </View>
+              <Text style={styles.drawerStatusSubtitle}>
+                {Platform.OS === 'ios' ? 'Metal GPU Accelerated • 4 Cores' : 'ARM Neon CPU • 4 Threads'} • 100% Offline
+              </Text>
             </View>
           </View>
         </View>
@@ -709,7 +789,12 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6
+    gap: 7
+  },
+  headerLogoImage: {
+    width: 22,
+    height: 22,
+    borderRadius: 5
   },
   appTitle: {
     fontSize: 17,
@@ -794,16 +879,19 @@ const styles = StyleSheet.create({
   emptyIconBadge: {
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: 14,
     backgroundColor: '#18181B',
     borderWidth: 1,
     borderColor: '#27272A',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16
+    marginBottom: 16,
+    overflow: 'hidden'
   },
-  emptyIconEmoji: {
-    fontSize: 26
+  emptyLogoImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 10
   },
   emptyTitle: {
     color: '#FAFAFA',
@@ -889,10 +977,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2E2E33',
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    overflow: 'hidden'
   },
-  assistantAvatarText: {
-    fontSize: 12
+  assistantAvatarImage: {
+    width: 20,
+    height: 20,
+    borderRadius: 4
   },
   assistantCardTitle: {
     color: '#FAFAFA',
@@ -961,6 +1052,35 @@ const styles = StyleSheet.create({
     color: '#D4D4D8',
     fontSize: 11,
     flexShrink: 1
+  },
+  assistantCardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 14,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#1A1A1E'
+  },
+  copyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#2E2E33',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6
+  },
+  copyBtnText: {
+    color: '#D4D4D8',
+    fontSize: 11,
+    fontWeight: '600'
+  },
+  cardMetricsText: {
+    color: '#38BDF8',
+    fontSize: 10,
+    fontFamily: 'monospace'
   },
   scrollPill: {
     position: 'absolute',
@@ -1152,10 +1272,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#27272A',
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    overflow: 'hidden'
   },
-  drawerBrandIcon: {
-    fontSize: 18
+  drawerLogoImage: {
+    width: 28,
+    height: 28,
+    borderRadius: 6
   },
   drawerBrandTitle: {
     color: '#FAFAFA',
@@ -1284,9 +1407,14 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: '#10B981'
   },
-  drawerStatusText: {
+  drawerStatusTitle: {
+    color: '#E4E4E7',
+    fontSize: 12,
+    fontWeight: '600'
+  },
+  drawerStatusSubtitle: {
     color: '#71717A',
-    fontSize: 11,
-    fontWeight: '500'
+    fontSize: 10,
+    marginTop: 2
   }
 });

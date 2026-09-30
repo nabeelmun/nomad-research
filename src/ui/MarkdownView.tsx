@@ -46,7 +46,31 @@ export const MarkdownView: React.FC<MarkdownViewProps> = React.memo(({ content, 
       continue;
     }
 
-    // Headings
+    // Horizontal Divider Rule (---, ***, ___)
+    if (/^(\-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+      renderedElements.push(<View key={`hr-${i}`} style={styles.horizontalRule} />);
+      continue;
+    }
+
+    // Headings (H1 to H5)
+    if (trimmed.startsWith('##### ')) {
+      renderedElements.push(
+        <Text key={`h5-${i}`} style={styles.h5}>
+          {renderInlineFormatting(trimmed.substring(6), onCitationPress)}
+        </Text>
+      );
+      continue;
+    }
+
+    if (trimmed.startsWith('#### ')) {
+      renderedElements.push(
+        <Text key={`h4-${i}`} style={styles.h4}>
+          {renderInlineFormatting(trimmed.substring(5), onCitationPress)}
+        </Text>
+      );
+      continue;
+    }
+
     if (trimmed.startsWith('### ')) {
       renderedElements.push(
         <Text key={`h3-${i}`} style={styles.h3}>
@@ -100,8 +124,8 @@ export const MarkdownView: React.FC<MarkdownViewProps> = React.memo(({ content, 
       continue;
     }
 
-    // Numbered lists 1. 2. etc
-    const numMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
+    // Numbered lists: supports standard "1." as well as model-escaped "1\." or "1)"
+    const numMatch = trimmed.match(/^(\d+)(?:\.|\\[.|\)])\s+(.*)$/);
     if (numMatch) {
       renderedElements.push(
         <View key={`num-${i}`} style={styles.listRow}>
@@ -135,7 +159,8 @@ export const MarkdownView: React.FC<MarkdownViewProps> = React.memo(({ content, 
 });
 
 /**
- * Parses inline tokens: **bold**, *italic*, `code`, and [1] citations
+ * Parses inline tokens: **bold**, *italic*, `code`, and [1] citations.
+ * Also cleans up unneeded backslash escaping (like \. or \-).
  */
 function renderInlineFormatting(
   text: string,
@@ -148,17 +173,19 @@ function renderInlineFormatting(
     if (!part) return null;
 
     if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+      const cleanInner = cleanEscapes(part.substring(2, part.length - 2));
       return (
         <Text key={`b-${index}`} style={styles.bold}>
-          {part.substring(2, part.length - 2)}
+          {cleanInner}
         </Text>
       );
     }
 
     if (part.startsWith('*') && part.endsWith('*') && part.length >= 2) {
+      const cleanInner = cleanEscapes(part.substring(1, part.length - 1));
       return (
         <Text key={`i-${index}`} style={styles.italic}>
-          {part.substring(1, part.length - 1)}
+          {cleanInner}
         </Text>
       );
     }
@@ -185,8 +212,13 @@ function renderInlineFormatting(
       );
     }
 
-    return <Text key={`t-${index}`}>{part}</Text>;
+    return <Text key={`t-${index}`}>{cleanEscapes(part)}</Text>;
   });
+}
+
+function cleanEscapes(str: string): string {
+  // Strip model backslash escapes: \. \* \_ \# \[ \] \( \) \-
+  return str.replace(/\\([.\*\_#\[\]\(\)\-\`])/g, '$1');
 }
 
 const styles = StyleSheet.create({
@@ -222,6 +254,27 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 6,
     marginBottom: 3
+  },
+  h4: {
+    color: '#E4E4E7',
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 8,
+    marginBottom: 3,
+    letterSpacing: 0.1
+  },
+  h5: {
+    color: '#D4D4D8',
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 6,
+    marginBottom: 2
+  },
+  horizontalRule: {
+    height: 1,
+    backgroundColor: '#27272A',
+    marginVertical: 12,
+    width: '100%'
   },
   bold: {
     fontWeight: '700',
