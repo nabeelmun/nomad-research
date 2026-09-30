@@ -1,0 +1,78 @@
+name: Build NomadLM iOS IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+    paths:
+      - '.github/workflows/build-ios.yml'
+      - 'App.tsx'
+      - 'app.json'
+      - 'package.json'
+      - 'src/**'
+
+permissions:
+  contents: write
+
+jobs:
+  build-ios:
+    runs-on: macos-14
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Generate iOS Native Project
+        run: npx expo prebuild --platform ios --no-install
+
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          pod install
+          cd ..
+
+      - name: Build Xcode Project (Unsigned Release)
+        run: |
+          xcodebuild -workspace ios/NomadLM.xcworkspace \
+            -scheme NomadLM \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            PROVISIONING_PROFILE="" \
+            build
+
+      - name: Package Unsigned IPA for Sideloading
+        run: |
+          mkdir -p build/Payload
+          cp -r build/Build/Products/Release-iphoneos/NomadLM.app build/Payload/
+          cd build
+          zip -r ../NomadLM-v1.1.0.ipa Payload
+          cd ..
+          ls -lh NomadLM-v1.1.0.ipa
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nomad-research-ios-ipa
+          path: NomadLM-v1.1.0.ipa
+          retention-days: 14
+
+      - name: Attach IPA to GitHub Release v1.1.0
+        uses: softprops/action-gh-release@v2
+        if: success()
+        with:
+          tag_name: v1.1.0
+          files: NomadLM-v1.1.0.ipa
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
