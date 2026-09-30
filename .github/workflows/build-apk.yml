@@ -42,3 +42,11 @@ jobs:
           name: nomad-research-release-apk
           path: android/app/build/outputs/apk/release/*.apk
           retention-days: 14
+      - name: Attach APK to GitHub Release v1.1.0
+        uses: softprops/action-gh-release@v2
+        if: success()
+        with:
+          tag_name: v1.1.0
+          files: android/app/build/outputs/apk/release/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
