@@ -160,8 +160,6 @@ export const MarkdownView: React.FC<MarkdownViewProps> = React.memo(({ content, 
     );
   }
 
-  }
-
   return <View style={styles.container}>{renderedElements}</View>;
 });
 
