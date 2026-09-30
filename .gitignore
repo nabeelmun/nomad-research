@@ -7,3 +7,4 @@ models/*.gguf
 *.db
 .DS_Store
 *.log
+release/

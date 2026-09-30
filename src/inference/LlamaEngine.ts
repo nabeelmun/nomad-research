@@ -22,6 +22,35 @@ export class LlamaEngine {
   private isGenerating: boolean = false;
 
   /**
+   * Automatically discovers and initializes an available GGUF model.
+   * Checks both app internal storage and external Download directory.
+   */
+  async autoInitialize(): Promise<boolean> {
+    if (this.context) return true;
+
+    const candidatePaths = [
+      `${FileSystem.documentDirectory}models/Llama-3.2-3B-Instruct-Q4_K_M.gguf`,
+      `${FileSystem.documentDirectory}models/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf`,
+      'file:///sdcard/Download/Llama-3.2-3B-Instruct-Q4_K_M.gguf',
+      'file:///sdcard/Download/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf'
+    ];
+
+    for (const p of candidatePaths) {
+      try {
+        const info = await FileSystem.getInfoAsync(p);
+        if (info.exists) {
+          console.log(`Found model at: ${p}`);
+          return await this.loadModel(p);
+        }
+      } catch (err) {
+        // continue search
+      }
+    }
+
+    return false;
+  }
+
+  /**
    * Initializes or reloads a GGUF model via llama.rn NDK bindings.
    * Defaulted to 4 threads for optimal performance on ARM Cortex-A715/A78 cores.
    */

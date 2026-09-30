@@ -10,12 +10,17 @@
 
 ## 📌 Project Status & Verified Data Footprint
 
-* **Inference Core:** Compact 3B reasoning architecture (`Llama-3.2-3B-Instruct` at `Q4_K_M`, ~2.02 GB) operating within a ~2.4 GB – 2.8 GB active RAM budget.
+* **Online-Once Setup → 100% Offline Research:** The app includes a modern First-Launch Setup Wizard that downloads the GGUF model and SQLite databases directly on-device over Wi-Fi with live progress tracking (no PC or USB cable required). Once installed, the app operates 100% in Airplane Mode with zero network calls.
+* **Inference Core Options:**
+  * **Standard Research Pack (Recommended):** `Llama-3.2-3B-Instruct` (`Q4_K_M`, ~1.92 GB) operating within a ~2.4 GB – 2.8 GB active RAM budget.
+  * **Lightweight Pack:** `Qwen2.5-1.5B-Instruct` (`Q4_K_M`, ~940 MB) for rapid inference on devices with 4GB–6GB RAM.
 * **Offline Knowledge Store:** Dual-layer compressed SQLite database (~4.95 GB total):
-  * **`voyage.db` (328 MB):** Complete Wikivoyage global collection covering **34,004 travel articles** and **549,160 searchable places** (cities, sights, restaurants, and hotels worldwide).
+  * **`voyage.db` (313.6 MB):** Complete Wikivoyage global collection covering **34,004 travel articles** and **549,160 searchable places** (cities, sights, restaurants, and hotels worldwide).
   * **`wiki_core.db` (4.62 GB):** Top **120,000 most-viewed English Wikipedia articles** from the FineWiki corpus, indexed with **4,645,950 searchable text chunks** and full redirect tables.
-* **Total Phone Footprint:** **~7.0 GB** (Model + Full Knowledge Store), leaving over 13 GB free on a standard 20 GB phone partition.
-* **Zero Network Permissions:** `android.permission.INTERNET` is explicitly blocked in `app.json`.
+* **Total Phone Footprint:** **~2.2 GB** (Standard Pack) or **~7.0 GB** (Full Dual Store), leaving ample headroom on standard 20 GB phone storage partitions.
+* **Dual Setup Modes Supported:**
+  1. **1-Tap In-App Download:** Streamlined on first launch over Wi-Fi with step-by-step progress tracking.
+  2. **Zero-Network USB Sideload:** Users can also transfer models and databases directly to `/sdcard/Download/` via USB cable to bypass network usage entirely.
 
 ---
 

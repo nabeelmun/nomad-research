@@ -1,6 +1,6 @@
 {
   "name": "nomad-research",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "NomadLM: The High-Speed, Zero-RAM-Crash Offline AI Research Engine for Android",
   "author": "Nomad Research Team",
   "license": "MIT",

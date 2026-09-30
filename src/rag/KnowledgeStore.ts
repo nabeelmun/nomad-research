@@ -130,6 +130,29 @@ While standard attention exhibits quadratic O(N^2) computational and memory comp
 1. FlashAttention: Tiling algorithm that minimizes IO reads/writes between fast SRAM and high-bandwidth HBM/DRAM.
 2. Grouped-Query Attention (GQA): Shares key and value heads across multiple query heads, cutting KV-cache memory bandwidth by 4x to 8x, essential for mobile RAM constraints.
 3. Rotary Position Embeddings (RoPE): Encodes relative position directly by rotating query and key representations in complex vector space.`
+      },
+      {
+        id: 'lisbon-dining-travel',
+        title: 'Lisbon Travel Guide: Top Vegan & Vegetarian Dining',
+        category: 'Travel & Dining',
+        content: `Lisbon is recognized as one of the most vibrant culinary capitals in Southern Europe with a surging plant-based gastronomy scene.
+Top recommended dining options:
+1. The Green Spot (Campo das Cebolas): High-end plant-based dining featuring international fusion, mushroom carpaccio, and craft kombuchas in a lush botanical setting.
+2. Kong - Food Made With Love (Rua do Crucifixo, Baixa): 100% vegan reimagining of traditional Portuguese tavern fare, famed for its vegan Francesinha (rich beer sauce, plant cheese, smoked tofu) and vegan pastel de nata.
+3. Vegan Nata (Rua dos Fanqueiros & Chiado): The quintessential Lisbon bakery offering certified palm-oil-free vegan pastéis de nata with crisp laminated pastry and caramelized custard.
+4. Ao 26 - Vegan Food Project (Chiado): Creative, artfully plated seasonal dishes including vegan cheese boards, bifana sandwiches, and chocolate hazelnut tart.
+5. Organi Chiado (Calçada Nova de São Francisco): Organic, whole-food seasonal menu with zero processed sugars, located below the steps of Chiado.`
+      },
+      {
+        id: 'kyoto-travel-guide',
+        title: 'Kyoto Cultural & Travel Guide: Historic Heritage & Zen Gastronomy',
+        category: 'Travel & Culture',
+        content: `Kyoto, the former imperial capital of Japan for over a millennium, houses over 2,000 Buddhist temples and Shinto shrines.
+Key destinations and dining:
+1. Fushimi Inari Taisha: Dedicated to Inari, the Shinto deity of rice and agriculture, famed for over 10,000 vermilion Torii gates winding up Mount Inari.
+2. Arashiyama Bamboo Grove & Tenryu-ji: A UNESCO World Heritage Zen temple with Shigetsu, serving traditional Shojin Ryori (Buddhist temple vegetarian cuisine) adhering to seasonal harmony.
+3. Gion District & Higashiyama: Preserved Edo-period machiya merchant townhouses, stone-paved alleys, and traditional teahouses along Hanamikoji Street.
+4. Kinkaku-ji (The Golden Pavilion): A Zen Buddhist temple whose top two floors are completely covered in gold leaf overlooking the Kyoko-chi mirror pond.`
       }
     ];
 
@@ -138,10 +161,14 @@ While standard attention exhibits quadratic O(N^2) computational and memory comp
         'INSERT OR REPLACE INTO articles (id, title, category, content) VALUES (?, ?, ?, ?);',
         [doc.id, doc.title, doc.category, doc.content]
       );
-      await this.db!.runAsync(
-        'INSERT INTO articles_fts (title, content) VALUES (?, ?);',
-        [doc.title, doc.content]
-      );
+      try {
+        await this.db!.runAsync(
+          'INSERT INTO articles_fts (title, content) VALUES (?, ?);',
+          [doc.title, doc.content]
+        );
+      } catch (err) {
+        // FTS may already contain the entry
+      }
     }
   }
 }

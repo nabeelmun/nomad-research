@@ -27,10 +27,17 @@ export default function ResearchTerminal() {
 
   useEffect(() => {
     knowledgeStore.initialize().catch(console.error);
+    llamaEngine.autoInitialize().then((loaded) => {
+      if (loaded) {
+        const cfg = llamaEngine.getConfig();
+        setStatusText(`Model Ready: ${cfg?.filename} (4 Cores • 100% Offline)`);
+      }
+    }).catch(console.error);
   }, []);
 
   const benchmarkPresets = [
     { label: 'STARKs vs SNARKs', q: 'Compare STARKs and SNARKs in terms of trusted setup, quantum resistance, and proof sizes.' },
+    { label: 'Lisbon Dining', q: 'What are the best vegan and vegetarian dining spots in Lisbon and what makes them special?' },
     { label: '1973 Oil Shock', q: 'How did the 1973 oil embargo restructure Japanese industrial and microelectronics policy?' },
     { label: 'BFT Bound', q: 'Explain why Byzantine Fault Tolerance requires n >= 3f + 1 in asynchronous networks.' }
   ];
