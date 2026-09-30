@@ -3,10 +3,10 @@ import zipfile
 import os
 
 token = os.environ.get('GH_TOKEN', '')
-artifact_url = 'https://api.github.com/repos/nabeelmun/nomad-research/actions/artifacts/5370258167/zip'
+run_id = '36676475790'
 
 # First get artifact ID from the list
-url = 'https://api.github.com/repos/nabeelmun/nomad-research/actions/runs/36616210889/artifacts'
+url = f'https://api.github.com/repos/nabeelmun/nomad-research/actions/runs/{run_id}/artifacts'
 req = urllib.request.Request(url, headers={'Authorization': f'Bearer {token}', 'User-Agent': 'NomadLM-Downloader'})
 with urllib.request.urlopen(req) as resp:
     import json

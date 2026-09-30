@@ -3,8 +3,8 @@
 
 > An offline-first, native Android research intelligence engine designed to meet and exceed the bar for mobile research: a powerful assistant that runs completely disconnected from the internet, operates comfortably within standard mobile RAM budgets (8GB–12GB devices), and delivers real-time inference grounded in verified encyclopedic citations and worldwide places.
 
-[![Download Release APK](https://img.shields.io/badge/Download-NomadLM--v1.0.0.apk-success?style=for-the-badge&logo=android)](https://github.com/nabeelmun/nomad-research/releases/download/v1.0.0/NomadLM-v1.0.0.apk)
-[![GitHub Release](https://img.shields.io/badge/Release-v1.0.0-blue?style=for-the-badge&logo=github)](https://github.com/nabeelmun/nomad-research/releases/tag/v1.0.0)
+[![Download Release APK](https://img.shields.io/badge/Download-NomadLM--v1.1.0.apk-success?style=for-the-badge&logo=android)](https://github.com/nabeelmun/nomad-research/releases/download/v1.1.0/NomadLM-v1.1.0.apk)
+[![GitHub Release](https://img.shields.io/badge/Release-v1.1.0-blue?style=for-the-badge&logo=github)](https://github.com/nabeelmun/nomad-research/releases/tag/v1.1.0)
 
 ---
 
