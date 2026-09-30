@@ -38,8 +38,8 @@ export default function ResearchTerminal() {
   const isUserScrollingRef = useRef(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // Chat History Modal
-  const [historyVisible, setHistoryVisible] = useState(false);
+  // Sidebar Drawer state
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [chatHistory, setChatHistory] = useState<SavedChat[]>([]);
 
   useEffect(() => {
@@ -59,6 +59,12 @@ export default function ResearchTerminal() {
     { label: '1973 Oil Shock', q: 'How did the 1973 oil embargo restructure Japanese industrial and microelectronics policy?' },
     { label: 'BFT Bound', q: 'Explain why Byzantine Fault Tolerance requires n >= 3f + 1 in asynchronous networks.' }
   ];
+
+  const handleOpenDrawer = async () => {
+    const list = await knowledgeStore.getChatHistory(40);
+    setChatHistory(list);
+    setDrawerOpen(true);
+  };
 
   const handleSearch = async (targetQuery?: string) => {
     const q = (targetQuery || query).trim();
@@ -108,7 +114,7 @@ export default function ResearchTerminal() {
       setActiveCitations(res.citations);
       let metricStr = '';
       if (res.metrics.tokensPerSecond > 0) {
-        metricStr = `⚡ ${res.metrics.tokensPerSecond} tok/s  |  ⏱ ${res.metrics.timeToFirstTokenMs}ms TTFT  |  ${res.metrics.totalTokens} tokens`;
+        metricStr = `⚡ ${res.metrics.tokensPerSecond} tok/s  •  ⏱ ${res.metrics.timeToFirstTokenMs}ms TTFT  •  ${res.metrics.totalTokens} tokens`;
         setActiveMetrics(metricStr);
       }
       setStatusText('Offline Research Complete');
@@ -175,7 +181,7 @@ export default function ResearchTerminal() {
     try {
       await llamaEngine.stopGeneration();
       setIsGenerating(false);
-      setStatusText('Generation Stopped by User');
+      setStatusText('Generation Stopped');
       setShowScrollBottomPill(false);
 
       if (currentStreamingTokens.trim()) {
@@ -216,12 +222,6 @@ export default function ResearchTerminal() {
     setShowScrollBottomPill(false);
   };
 
-  const handleOpenHistory = async () => {
-    const list = await knowledgeStore.getChatHistory(40);
-    setChatHistory(list);
-    setHistoryVisible(true);
-  };
-
   const handleSelectHistoryItem = (item: SavedChat) => {
     if (item.messagesJson) {
       try {
@@ -231,8 +231,8 @@ export default function ResearchTerminal() {
           setQuery('');
           setCurrentStreamingTokens('');
           setActiveMetrics(item.metrics || null);
-          setStatusText('Restored from Offline History');
-          setHistoryVisible(false);
+          setStatusText('Restored from History');
+          setDrawerOpen(false);
           setTimeout(() => {
             scrollViewRef.current?.scrollToEnd({ animated: false });
           }, 100);
@@ -264,8 +264,8 @@ export default function ResearchTerminal() {
     setQuery('');
     setCurrentStreamingTokens('');
     setActiveMetrics(item.metrics || null);
-    setStatusText('Restored from Offline History');
-    setHistoryVisible(false);
+    setStatusText('Restored from History');
+    setDrawerOpen(false);
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: false });
     }, 100);
@@ -284,35 +284,45 @@ export default function ResearchTerminal() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0A0A0A" />
+      <StatusBar barStyle="light-content" backgroundColor="#09090B" />
 
       <KeyboardAvoidingView
         style={styles.keyboardContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
       >
-        {/* Top Header & History Controls */}
+        {/* Modern Header */}
         <View style={styles.header}>
-          <View style={styles.titleRow}>
-            <View style={styles.appTitleWrapper}>
-              <Text style={styles.appTitle}>⛺ NomadLM</Text>
-              <View style={styles.badgeOffline}>
-                <Text style={styles.badgeText}>100% OFFLINE</Text>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={handleOpenDrawer}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={styles.hamburgerText}>☰</Text>
+            </TouchableOpacity>
+
+            <View style={styles.brandingCol}>
+              <View style={styles.titleRow}>
+                <Text style={styles.appTitle}>NomadLM</Text>
+                <View style={styles.offlineDot} />
+                <Text style={styles.offlineTag}>OFFLINE</Text>
               </View>
             </View>
-
-            <View style={styles.headerButtonsRow}>
-              <TouchableOpacity style={styles.headerBtn} onPress={handleNewChat} activeOpacity={0.7}>
-                <Text style={styles.headerBtnText}>➕ New</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.headerBtn} onPress={handleOpenHistory} activeOpacity={0.7}>
-                <Text style={styles.headerBtnText}>🕒 History</Text>
-              </TouchableOpacity>
-            </View>
           </View>
-          <Text style={styles.telemetryText}>
-            Multi-Turn Offline Intelligence • Zero Network Calls
-          </Text>
+
+          <View style={styles.headerRight}>
+            <TouchableOpacity
+              style={styles.newChatHeaderBtn}
+              onPress={handleNewChat}
+              activeOpacity={0.7}
+              disabled={isGenerating}
+            >
+              <Text style={styles.newChatHeaderIcon}>➕</Text>
+              <Text style={styles.newChatHeaderText}>New</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Quick Benchmark Chips */}
@@ -324,6 +334,7 @@ export default function ResearchTerminal() {
                 style={styles.presetChip}
                 onPress={() => handleSearch(preset.q)}
                 disabled={isGenerating}
+                activeOpacity={0.7}
               >
                 <Text style={styles.presetChipText}>{preset.label}</Text>
               </TouchableOpacity>
@@ -355,10 +366,33 @@ export default function ResearchTerminal() {
           >
             {messages.length === 0 && !isGenerating ? (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyTitle}>Offline Conversational Intelligence</Text>
+                <View style={styles.emptyIconBadge}>
+                  <Text style={styles.emptyIconEmoji}>⛺</Text>
+                </View>
+                <Text style={styles.emptyTitle}>Offline Encyclopedic Intelligence</Text>
                 <Text style={styles.emptyDesc}>
-                  Ask any research, technical, or travel question. NomadLM remembers prior context across follow-up queries completely offline.
+                  Ask practical questions, world travel advice, or deep technical comparisons. Runs 100% on your device hardware with zero internet connectivity.
                 </Text>
+
+                <View style={styles.suggestedGrid}>
+                  <TouchableOpacity
+                    style={styles.suggestCard}
+                    onPress={() => handleSearch('How do I jumpstart a car if it is not starting? Step by step safety instructions.')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.suggestCardTitle}>🚗 Jumpstart a Dead Car</Text>
+                    <Text style={styles.suggestCardSub}>Step-by-step terminal instructions</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.suggestCard}
+                    onPress={() => handleSearch('What are the best vegan and vegetarian dining spots in Lisbon and what makes them special?')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.suggestCardTitle}>🇵🇹 Lisbon Vegan Dining</Text>
+                    <Text style={styles.suggestCardSub}>Wikivoyage grounded places & sights</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ) : (
               <View>
@@ -373,29 +407,44 @@ export default function ResearchTerminal() {
                         <Text style={styles.userBubbleText}>{msg.content}</Text>
                       </View>
                     ) : (
-                      <View style={styles.assistantBubble}>
-                        <MarkdownView
-                          content={msg.content}
-                          onCitationPress={(citId) => {
-                            const c = msg.citations?.find((item) => item.id === citId);
-                            if (c) setSelectedCitation(c);
-                          }}
-                        />
+                      <View style={styles.assistantCard}>
+                        <View style={styles.assistantCardHeader}>
+                          <View style={styles.assistantAvatar}>
+                            <Text style={styles.assistantAvatarText}>⛺</Text>
+                          </View>
+                          <Text style={styles.assistantCardTitle}>NomadLM</Text>
+                          <View style={styles.groundedTag}>
+                            <Text style={styles.groundedTagText}>GROUNDED</Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.assistantCardBody}>
+                          <MarkdownView
+                            content={msg.content}
+                            onCitationPress={(citId) => {
+                              const c = msg.citations?.find((item) => item.id === citId);
+                              if (c) setSelectedCitation(c);
+                            }}
+                          />
+                        </View>
 
                         {/* Citations Footer */}
                         {msg.citations && msg.citations.length > 0 && (
                           <View style={styles.citationsBox}>
-                            <Text style={styles.citationsHeader}>GROUNDED SOURCES ({msg.citations.length}):</Text>
-                            {msg.citations.map((c) => (
-                              <TouchableOpacity
-                                key={c.id}
-                                style={styles.citationItem}
-                                onPress={() => setSelectedCitation(c)}
-                              >
-                                <Text style={styles.citationNumber}>[{c.id}]</Text>
-                                <Text style={styles.citationTitle} numberOfLines={1}>{c.title}</Text>
-                              </TouchableOpacity>
-                            ))}
+                            <Text style={styles.citationsHeader}>VERIFIED SOURCES ({msg.citations.length})</Text>
+                            <View style={styles.citationsWrap}>
+                              {msg.citations.map((c) => (
+                                <TouchableOpacity
+                                  key={c.id}
+                                  style={styles.citationBadgeBtn}
+                                  onPress={() => setSelectedCitation(c)}
+                                  activeOpacity={0.7}
+                                >
+                                  <Text style={styles.citationBadgeId}>[{c.id}]</Text>
+                                  <Text style={styles.citationBadgeTitle} numberOfLines={1}>{c.title}</Text>
+                                </TouchableOpacity>
+                              ))}
+                            </View>
                           </View>
                         )}
                       </View>
@@ -406,21 +455,30 @@ export default function ResearchTerminal() {
                 {/* Active Streaming Bubble */}
                 {isGenerating && (
                   <View style={styles.assistantBubbleWrapper}>
-                    <View style={styles.assistantBubble}>
-                      {currentStreamingTokens.length > 0 ? (
-                        <MarkdownView
-                          content={currentStreamingTokens}
-                          onCitationPress={(citId) => {
-                            const c = activeCitations.find((item) => item.id === citId);
-                            if (c) setSelectedCitation(c);
-                          }}
-                        />
-                      ) : (
-                        <View style={styles.streamingPlaceholder}>
-                          <ActivityIndicator size="small" color="#4ADE80" style={{ marginRight: 8 }} />
-                          <Text style={styles.streamingPlaceholderText}>Consulting local knowledge base...</Text>
+                    <View style={styles.assistantCard}>
+                      <View style={styles.assistantCardHeader}>
+                        <View style={styles.assistantAvatar}>
+                          <Text style={styles.assistantAvatarText}>⛺</Text>
                         </View>
-                      )}
+                        <Text style={styles.assistantCardTitle}>NomadLM</Text>
+                        <ActivityIndicator size="small" color="#10B981" style={{ marginLeft: 8 }} />
+                      </View>
+
+                      <View style={styles.assistantCardBody}>
+                        {currentStreamingTokens.length > 0 ? (
+                          <MarkdownView
+                            content={currentStreamingTokens}
+                            onCitationPress={(citId) => {
+                              const c = activeCitations.find((item) => item.id === citId);
+                              if (c) setSelectedCitation(c);
+                            }}
+                          />
+                        ) : (
+                          <View style={styles.streamingPlaceholder}>
+                            <Text style={styles.streamingPlaceholderText}>Synthesizing with local neural model...</Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
                   </View>
                 )}
@@ -431,7 +489,7 @@ export default function ResearchTerminal() {
           {/* Floating Scroll to Bottom Pill */}
           {showScrollBottomPill && (
             <TouchableOpacity style={styles.scrollPill} onPress={handleScrollToBottom} activeOpacity={0.8}>
-              <Text style={styles.scrollPillText}>⬇ Auto-scrolling paused (Tap to scroll)</Text>
+              <Text style={styles.scrollPillText}>⬇ Auto-scrolling paused (Tap to resume)</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -445,31 +503,40 @@ export default function ResearchTerminal() {
 
         {/* Status Bar */}
         <View style={styles.statusBar}>
-          {isGenerating && <ActivityIndicator size="small" color="#FFF" style={{ marginRight: 8 }} />}
-          <Text style={styles.statusLabel}>{statusText}</Text>
+          <View style={styles.statusRow}>
+            {isGenerating && <ActivityIndicator size="small" color="#10B981" style={{ marginRight: 6 }} />}
+            <Text style={styles.statusLabel}>{statusText}</Text>
+          </View>
         </View>
 
-        {/* Search Input Bar */}
+        {/* Input Bar */}
         <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder={messages.length > 0 ? "Ask follow-up with context..." : "Ask research, travel, or practical questions..."}
-            placeholderTextColor="#666"
-            value={query}
-            onChangeText={setQuery}
-            onSubmitEditing={() => !isGenerating && handleSearch()}
-            returnKeyType="search"
-            editable={!isGenerating}
-          />
-          {isGenerating ? (
-            <TouchableOpacity style={styles.stopButton} onPress={handleStopGeneration} activeOpacity={0.8}>
-              <Text style={styles.stopButtonText}>■ STOP</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={styles.sendButton} onPress={() => handleSearch()} activeOpacity={0.8}>
-              <Text style={styles.sendButtonText}>RUN</Text>
-            </TouchableOpacity>
-          )}
+          <View style={styles.inputWrapper}>
+            <TextInput
+              style={styles.input}
+              placeholder={messages.length > 0 ? "Ask follow-up with context..." : "Ask practical, research, or travel queries..."}
+              placeholderTextColor="#71717A"
+              value={query}
+              onChangeText={setQuery}
+              onSubmitEditing={() => !isGenerating && handleSearch()}
+              returnKeyType="search"
+              editable={!isGenerating}
+            />
+            {isGenerating ? (
+              <TouchableOpacity style={styles.stopActionBtn} onPress={handleStopGeneration} activeOpacity={0.8}>
+                <Text style={styles.stopActionIcon}>■</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[styles.sendActionBtn, !query.trim() && styles.sendActionDisabled]}
+                onPress={() => handleSearch()}
+                activeOpacity={0.8}
+                disabled={!query.trim()}
+              >
+                <Text style={styles.sendActionIcon}>↑</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </KeyboardAvoidingView>
 
@@ -492,49 +559,105 @@ export default function ResearchTerminal() {
         </Modal>
       )}
 
-      {/* Chat History Modal */}
-      <Modal visible={historyVisible} animationType="slide" transparent onRequestClose={() => setHistoryVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.historyModalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.historyModalTitle}>🕒 Offline Research History</Text>
-              <TouchableOpacity onPress={() => setHistoryVisible(false)}>
-                <Text style={styles.modalClose}>✕</Text>
+      {/* Modern Side View Drawer (Sidebar) */}
+      <Modal
+        visible={drawerOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDrawerOpen(false)}
+      >
+        <View style={styles.drawerOverlay}>
+          <TouchableOpacity
+            style={styles.drawerBackdrop}
+            activeOpacity={1}
+            onPress={() => setDrawerOpen(false)}
+          />
+
+          <View style={styles.drawerContainer}>
+            {/* Drawer Header */}
+            <View style={styles.drawerHeader}>
+              <View style={styles.drawerBrand}>
+                <View style={styles.drawerBrandIconWrap}>
+                  <Text style={styles.drawerBrandIcon}>⛺</Text>
+                </View>
+                <View>
+                  <Text style={styles.drawerBrandTitle}>NomadLM</Text>
+                  <Text style={styles.drawerBrandSubtitle}>100% Offline Research</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.drawerCloseBtn}
+                onPress={() => setDrawerOpen(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={styles.drawerCloseText}>✕</Text>
               </TouchableOpacity>
             </View>
 
+            {/* New Session Button */}
+            <TouchableOpacity
+              style={styles.drawerNewBtn}
+              onPress={() => {
+                handleNewChat();
+                setDrawerOpen(false);
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.drawerNewBtnIcon}>➕</Text>
+              <Text style={styles.drawerNewBtnText}>New Research Session</Text>
+            </TouchableOpacity>
+
+            {/* Section Header */}
+            <View style={styles.drawerSectionHeader}>
+              <Text style={styles.drawerSectionTitle}>SAVED SESSIONS</Text>
+              <Text style={styles.drawerSectionCount}>{chatHistory.length}</Text>
+            </View>
+
+            {/* History List */}
             {chatHistory.length === 0 ? (
-              <View style={styles.emptyHistoryBox}>
-                <Text style={styles.emptyHistoryText}>No saved offline sessions yet.</Text>
-                <Text style={styles.emptyHistorySubText}>Past conversation threads automatically save here so you can review them anytime.</Text>
+              <View style={styles.emptyDrawerBox}>
+                <Text style={styles.emptyDrawerIcon}>📜</Text>
+                <Text style={styles.emptyDrawerText}>No saved sessions yet</Text>
+                <Text style={styles.emptyDrawerSub}>Your conversations automatically save here locally on your device.</Text>
               </View>
             ) : (
               <FlatList
                 data={chatHistory}
                 keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.historyList}
+                contentContainerStyle={styles.drawerList}
                 renderItem={({ item }) => (
-                  <View style={styles.historyCard}>
+                  <View style={styles.historyDrawerCard}>
                     <TouchableOpacity
-                      style={styles.historyTextContainer}
+                      style={styles.historyDrawerTextCol}
                       onPress={() => handleSelectHistoryItem(item)}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.historyQuery} numberOfLines={2}>{item.query}</Text>
-                      <Text style={styles.historyTime}>
-                        {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(item.createdAt).toLocaleDateString()}
+                      <Text style={styles.historyDrawerTitle} numberOfLines={2}>
+                        {item.query}
+                      </Text>
+                      <Text style={styles.historyDrawerMeta}>
+                        {new Date(item.createdAt).toLocaleDateString()} • {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      style={styles.historyDeleteBtn}
+                      style={styles.historyDrawerDelete}
                       onPress={() => handleDeleteHistoryItem(item.id)}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                      <Text style={styles.historyDeleteText}>🗑</Text>
+                      <Text style={styles.historyDeleteIcon}>🗑</Text>
                     </TouchableOpacity>
                   </View>
                 )}
               />
             )}
+
+            {/* Drawer Footer Status */}
+            <View style={styles.drawerFooter}>
+              <View style={styles.drawerStatusBadge}>
+                <View style={styles.statusDotLive} />
+                <Text style={styles.drawerStatusText}>Zero Network • Local SQLite</Text>
+              </View>
+            </View>
           </View>
         </View>
       </Modal>
@@ -545,91 +668,110 @@ export default function ResearchTerminal() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A0A'
+    backgroundColor: '#09090B'
   },
   keyboardContainer: {
     flex: 1
   },
   header: {
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingTop: 10,
+    paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#222'
-  },
-  titleRow: {
+    borderBottomColor: '#18181B',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between'
   },
-  appTitleWrapper: {
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8
+    gap: 12
+  },
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  hamburgerText: {
+    color: '#FAFAFA',
+    fontSize: 18,
+    fontWeight: '600'
+  },
+  brandingCol: {
+    justifyContent: 'center'
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6
   },
   appTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFF',
-    letterSpacing: 0.5
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#FAFAFA',
+    letterSpacing: -0.3
   },
-  badgeOffline: {
-    backgroundColor: '#1E3A24',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#2F6A3E'
+  offlineDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+    marginLeft: 2
   },
-  badgeText: {
-    color: '#4ADE80',
-    fontSize: 9,
+  offlineTag: {
+    color: '#10B981',
+    fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.5
   },
-  headerButtonsRow: {
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  newChatHeaderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8
-  },
-  headerBtn: {
-    backgroundColor: '#1E1E1E',
+    gap: 4,
+    backgroundColor: '#18181B',
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: '#27272A',
     paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6
+    paddingVertical: 6,
+    borderRadius: 8
   },
-  headerBtnText: {
-    color: '#E0E0E0',
+  newChatHeaderIcon: {
+    fontSize: 12
+  },
+  newChatHeaderText: {
+    color: '#FAFAFA',
     fontSize: 12,
     fontWeight: '600'
-  },
-  telemetryText: {
-    fontSize: 11,
-    color: '#777',
-    marginTop: 4,
-    fontFamily: 'monospace'
   },
   presetContainer: {
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#1A1A1A'
+    borderBottomColor: '#141417'
   },
   presetScroll: {
     paddingHorizontal: 16,
     gap: 8
   },
   presetChip: {
-    backgroundColor: '#161616',
+    backgroundColor: '#141417',
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: '#27272A',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16
   },
   presetChipText: {
-    color: '#BBB',
+    color: '#A1A1AA',
     fontSize: 12,
     fontWeight: '500'
   },
@@ -642,25 +784,62 @@ const styles = StyleSheet.create({
   },
   terminalContent: {
     padding: 16,
-    paddingBottom: 32
+    paddingBottom: 36
   },
   emptyState: {
-    marginTop: 80,
+    marginTop: 40,
     alignItems: 'center',
-    paddingHorizontal: 24
+    paddingHorizontal: 20
+  },
+  emptyIconBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16
+  },
+  emptyIconEmoji: {
+    fontSize: 26
   },
   emptyTitle: {
-    color: '#FFF',
+    color: '#FAFAFA',
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 8,
-    textAlign: 'center'
+    textAlign: 'center',
+    letterSpacing: -0.2
   },
   emptyDesc: {
-    color: '#777',
+    color: '#71717A',
     fontSize: 13,
     textAlign: 'center',
-    lineHeight: 20
+    lineHeight: 20,
+    marginBottom: 28
+  },
+  suggestedGrid: {
+    width: '100%',
+    gap: 10
+  },
+  suggestCard: {
+    backgroundColor: '#121215',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    padding: 14,
+    borderRadius: 12
+  },
+  suggestCardTitle: {
+    color: '#E4E4E7',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 2
+  },
+  suggestCardSub: {
+    color: '#71717A',
+    fontSize: 12
   },
   userBubbleWrapper: {
     alignItems: 'flex-end',
@@ -670,9 +849,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E293B',
     borderWidth: 1,
     borderColor: '#334155',
-    paddingHorizontal: 14,
+    paddingHorizontal: 15,
     paddingVertical: 10,
-    borderRadius: 16,
+    borderRadius: 18,
     borderBottomRightRadius: 4,
     maxWidth: '85%'
   },
@@ -687,61 +866,107 @@ const styles = StyleSheet.create({
     marginVertical: 6,
     width: '100%'
   },
-  assistantBubble: {
-    backgroundColor: '#111111',
+  assistantCard: {
+    backgroundColor: '#111113',
     borderWidth: 1,
-    borderColor: '#242424',
-    padding: 14,
+    borderColor: '#222226',
     borderRadius: 16,
     borderBottomLeftRadius: 4,
+    padding: 16,
     width: '100%'
   },
-  streamingPlaceholder: {
+  assistantCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4
+    marginBottom: 12,
+    gap: 8
+  },
+  assistantAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#2E2E33',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  assistantAvatarText: {
+    fontSize: 12
+  },
+  assistantCardTitle: {
+    color: '#FAFAFA',
+    fontSize: 13,
+    fontWeight: '700'
+  },
+  groundedTag: {
+    backgroundColor: '#064E3B',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4
+  },
+  groundedTagText: {
+    color: '#34D399',
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.5
+  },
+  assistantCardBody: {
+    marginTop: 2
+  },
+  streamingPlaceholder: {
+    paddingVertical: 6
   },
   streamingPlaceholderText: {
-    color: '#888',
+    color: '#71717A',
     fontSize: 13,
     fontStyle: 'italic'
   },
   citationsBox: {
-    marginTop: 18,
-    padding: 10,
-    backgroundColor: '#0A0A0A',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#1E1E1E'
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#1E1E22'
   },
   citationsHeader: {
-    color: '#888',
-    fontSize: 11,
+    color: '#71717A',
+    fontSize: 10,
     fontWeight: '700',
-    marginBottom: 6,
+    marginBottom: 8,
     letterSpacing: 0.5
   },
-  citationItem: {
+  citationsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6
+  },
+  citationBadgeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#2E2E33',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    maxWidth: '100%'
   },
-  citationNumber: {
-    color: '#4ADE80',
+  citationBadgeId: {
+    color: '#10B981',
     fontWeight: '700',
-    fontSize: 12,
-    marginRight: 6
+    fontSize: 11,
+    marginRight: 4
   },
-  citationTitle: {
-    color: '#BBB',
-    fontSize: 13,
-    flex: 1
+  citationBadgeTitle: {
+    color: '#D4D4D8',
+    fontSize: 11,
+    flexShrink: 1
   },
   scrollPill: {
     position: 'absolute',
     bottom: 12,
     alignSelf: 'center',
-    backgroundColor: '#1E293B',
+    backgroundColor: '#18181B',
     borderColor: '#38BDF8',
     borderWidth: 1,
     paddingHorizontal: 14,
@@ -759,75 +984,86 @@ const styles = StyleSheet.create({
     fontWeight: '600'
   },
   metricsBar: {
-    backgroundColor: '#111',
+    backgroundColor: '#0D0D10',
     paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderTopWidth: 1,
-    borderTopColor: '#222'
+    borderTopColor: '#1A1A1E'
   },
   metricsText: {
     color: '#38BDF8',
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: 'monospace'
   },
   statusBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0F0F0F',
+    backgroundColor: '#09090B',
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderTopWidth: 1,
-    borderTopColor: '#1A1A1A'
+    borderTopColor: '#18181B'
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center'
   },
   statusLabel: {
-    color: '#888',
+    color: '#71717A',
     fontSize: 11,
-    fontWeight: '600'
+    fontWeight: '500'
   },
   inputContainer: {
-    flexDirection: 'row',
-    padding: 12,
-    backgroundColor: '#0F0F0F',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: '#09090B',
     borderTopWidth: 1,
-    borderTopColor: '#222',
-    alignItems: 'center'
+    borderTopColor: '#18181B'
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    backgroundColor: '#141417',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    alignItems: 'center',
+    paddingLeft: 16,
+    paddingRight: 6,
+    paddingVertical: 4
   },
   input: {
     flex: 1,
-    height: 44,
-    backgroundColor: '#1A1A1A',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    color: '#FFF',
-    fontSize: 14,
-    borderWidth: 1,
-    borderColor: '#333'
+    minHeight: 38,
+    color: '#FAFAFA',
+    fontSize: 14
   },
-  sendButton: {
-    backgroundColor: '#FFF',
-    marginLeft: 8,
-    height: 44,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+  sendActionBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FAFAFA',
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    marginLeft: 6
   },
-  sendButtonText: {
-    color: '#000',
-    fontWeight: '800',
-    fontSize: 13
+  sendActionDisabled: {
+    backgroundColor: '#27272A'
   },
-  stopButton: {
+  sendActionIcon: {
+    color: '#09090B',
+    fontWeight: '900',
+    fontSize: 16,
+    marginTop: -1
+  },
+  stopActionBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#EF4444',
-    marginLeft: 8,
-    height: 44,
-    paddingHorizontal: 14,
-    borderRadius: 8,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    marginLeft: 6
   },
-  stopButtonText: {
-    color: '#FFF',
+  stopActionIcon: {
+    color: '#FAFAFA',
     fontWeight: '800',
     fontSize: 13
   },
@@ -837,11 +1073,13 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end'
   },
   modalContent: {
-    backgroundColor: '#161616',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    backgroundColor: '#121215',
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
     padding: 20,
-    maxHeight: '60%'
+    maxHeight: '60%',
+    borderWidth: 1,
+    borderColor: '#27272A'
   },
   modalHeader: {
     flexDirection: 'row',
@@ -849,89 +1087,206 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#262626',
+    borderBottomColor: '#222226',
     paddingBottom: 10
   },
   modalTitle: {
-    color: '#FFF',
-    fontSize: 16,
+    color: '#FAFAFA',
+    fontSize: 15,
     fontWeight: '700',
     flex: 1,
     marginRight: 10
   },
   modalClose: {
-    color: '#888',
-    fontSize: 20,
+    color: '#A1A1AA',
+    fontSize: 18,
     fontWeight: '600'
   },
   modalScroll: {
     marginTop: 6
   },
   modalExcerpt: {
-    color: '#CCC',
+    color: '#D4D4D8',
     fontSize: 14,
     lineHeight: 22
   },
-  historyModalContent: {
-    backgroundColor: '#141414',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    padding: 20,
-    height: '75%'
+  drawerOverlay: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0,0,0,0.65)'
   },
-  historyModalTitle: {
-    color: '#FFF',
+  drawerBackdrop: {
+    flex: 1
+  },
+  drawerContainer: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: '80%',
+    maxWidth: 320,
+    backgroundColor: '#09090B',
+    borderRightWidth: 1,
+    borderRightColor: '#222226',
+    paddingTop: Platform.OS === 'ios' ? 50 : 20,
+    paddingBottom: 24,
+    paddingHorizontal: 16,
+    justifyContent: 'space-between'
+  },
+  drawerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20
+  },
+  drawerBrand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10
+  },
+  drawerBrandIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  drawerBrandIcon: {
+    fontSize: 18
+  },
+  drawerBrandTitle: {
+    color: '#FAFAFA',
     fontSize: 16,
-    fontWeight: '700'
+    fontWeight: '700',
+    letterSpacing: -0.2
   },
-  emptyHistoryBox: {
+  drawerBrandSubtitle: {
+    color: '#71717A',
+    fontSize: 11
+  },
+  drawerCloseBtn: {
+    padding: 6
+  },
+  drawerCloseText: {
+    color: '#71717A',
+    fontSize: 18
+  },
+  drawerNewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginBottom: 20
+  },
+  drawerNewBtnIcon: {
+    fontSize: 13
+  },
+  drawerNewBtnText: {
+    color: '#FAFAFA',
+    fontSize: 13,
+    fontWeight: '600'
+  },
+  drawerSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 4
+  },
+  drawerSectionTitle: {
+    color: '#71717A',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5
+  },
+  drawerSectionCount: {
+    color: '#52525B',
+    fontSize: 11,
+    fontWeight: '600'
+  },
+  emptyDrawerBox: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 30
+    paddingHorizontal: 20
   },
-  emptyHistoryText: {
-    color: '#AAA',
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 6
+  emptyDrawerIcon: {
+    fontSize: 28,
+    marginBottom: 8
   },
-  emptyHistorySubText: {
-    color: '#666',
-    fontSize: 12,
-    textAlign: 'center',
-    lineHeight: 18
-  },
-  historyList: {
-    paddingVertical: 10
-  },
-  historyCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1C1C1C',
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 10
-  },
-  historyTextContainer: {
-    flex: 1
-  },
-  historyQuery: {
-    color: '#FFF',
+  emptyDrawerText: {
+    color: '#A1A1AA',
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 4
   },
-  historyTime: {
-    color: '#777',
-    fontSize: 11
+  emptyDrawerSub: {
+    color: '#52525B',
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 16
   },
-  historyDeleteBtn: {
-    padding: 8
+  drawerList: {
+    paddingBottom: 16
   },
-  historyDeleteText: {
-    fontSize: 16
+  historyDrawerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#121215',
+    borderWidth: 1,
+    borderColor: '#1E1E22',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8
+  },
+  historyDrawerTextCol: {
+    flex: 1,
+    marginRight: 6
+  },
+  historyDrawerTitle: {
+    color: '#E4E4E7',
+    fontSize: 13,
+    fontWeight: '500',
+    marginBottom: 4,
+    lineHeight: 18
+  },
+  historyDrawerMeta: {
+    color: '#71717A',
+    fontSize: 10
+  },
+  historyDrawerDelete: {
+    padding: 6
+  },
+  historyDeleteIcon: {
+    fontSize: 14
+  },
+  drawerFooter: {
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#18181B'
+  },
+  drawerStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6
+  },
+  statusDotLive: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981'
+  },
+  drawerStatusText: {
+    color: '#71717A',
+    fontSize: 11,
+    fontWeight: '500'
   }
 });

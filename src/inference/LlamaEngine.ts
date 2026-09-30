@@ -123,9 +123,23 @@ export class LlamaEngine {
         {
           prompt,
           n_predict: 1024,
-          temperature: 0.3,
+          temperature: 0.6,
           top_p: 0.9,
-          stop: ['\nUser:', '<|im_end|>', '<|endoftext|>', '### User:']
+          penalty_repeat: 1.18,
+          penalty_last_n: 128,
+          penalty_present: 0.3,
+          penalty_freq: 0.3,
+          stop: [
+            '<|im_end|>',
+            '<|endoftext|>',
+            '<|im_start|>',
+            '<|im_start|>user',
+            '<|im_start|>assistant',
+            '\nUser:',
+            '\n### User:',
+            '### User:',
+            'User:'
+          ]
         },
         (data) => {
           if (!firstTokenTime) {
