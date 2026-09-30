@@ -64,12 +64,12 @@ export class KnowledgeStore {
       // Column may already exist
     }
 
-    // Check if seed data exists and has all 20 foundational benchmark articles
+    // Check if seed data exists and has all 21 foundational benchmark articles
     const countResult = await this.db.getFirstAsync<{ count: number }>(
       'SELECT COUNT(*) as count FROM articles;'
     );
 
-    if (!countResult || countResult.count < 20) {
+    if (!countResult || countResult.count < 21) {
       await this.populateSeedCorpus();
     }
   }
@@ -77,18 +77,29 @@ export class KnowledgeStore {
   async search(query: string, limit: number = 3): Promise<SearchResult[]> {
     if (!this.db) await this.initialize();
 
-    // Clean query for FTS5 syntax
-    const sanitized = query
+    const stopWords = new Set([
+      'the', 'is', 'at', 'which', 'on', 'and', 'a', 'an', 'in', 'to', 'for', 'of',
+      'or', 'by', 'with', 'from', 'as', 'that', 'this', 'it', 'are', 'was', 'were',
+      'be', 'been', 'has', 'have', 'had', 'do', 'does', 'did', 'but', 'not', 'what',
+      'where', 'when', 'who', 'how', 'why', 'can', 'could', 'will', 'would', 'should',
+      'top', 'best', 'good', 'list', 'tell', 'show', 'give', 'about', 'some', 'any',
+      'near', 'all', 'out', 'here', 'there', 'please', 'know', 'make', 'more'
+    ]);
+
+    // Extract substantive content terms
+    const tokens = query
       .replace(/[^a-zA-Z0-9\s]/g, ' ')
       .trim()
       .split(/\s+/)
-      .filter(w => w.length > 2)
-      .join(' OR ');
+      .map(w => w.toLowerCase())
+      .filter(w => w.length > 2 && !stopWords.has(w));
 
-    if (!sanitized) return [];
+    if (tokens.length === 0) return [];
 
     try {
-      const rows = await this.db!.getAllAsync<any>(
+      // 1. Try strict AND query first across substantive keywords
+      const andQuery = tokens.map(t => `"${t}"*`).join(' AND ');
+      let rows = await this.db!.getAllAsync<any>(
         `
         SELECT 
           title,
@@ -99,16 +110,38 @@ export class KnowledgeStore {
         ORDER BY bm25(articles_fts)
         LIMIT ?;
         `,
-        [sanitized, limit]
+        [andQuery, limit]
       );
 
-      return rows.map((r: any) => ({
+      // 2. If strict AND returns 0, try OR with strict relevance cutoff
+      if (!rows || rows.length === 0) {
+        const orQuery = tokens.map(t => `"${t}"*`).join(' OR ');
+        const candidateRows = await this.db!.getAllAsync<any>(
+          `
+          SELECT 
+            title,
+            snippet(articles_fts, 1, '<b>', '</b>', '...', 64) as snippet,
+            bm25(articles_fts) as score
+          FROM articles_fts
+          WHERE articles_fts MATCH ?
+          ORDER BY bm25(articles_fts)
+          LIMIT ?;
+          `,
+          [orQuery, limit]
+        );
+
+        // Strict BM25 threshold: eliminate spurious single-word accidental hits
+        // SQLite FTS5 bm25() returns negative numbers. Require a substantial match.
+        rows = (candidateRows || []).filter((r: any) => Math.abs(r.score) >= 1.2);
+      }
+
+      return (rows || []).map((r: any) => ({
         title: r.title,
         snippet: r.snippet.replace(/<\/?b>/g, ''),
         score: Math.abs(r.score)
       }));
     } catch (e) {
-      console.warn('FTS search fallback to LIKE:', e);
+      console.warn('FTS search error:', e);
       return [];
     }
   }
@@ -429,6 +462,23 @@ KEY HANDSHAKE DIFFERENCES FOR DEVELOPERS:
 3. Certificate Encryption & Privacy:
    - In TLS 1.2, the server's digital certificate and identity were transmitted in plaintext during the handshake, visible to network eavesdroppers.
    - In TLS 1.3, the server certificate and its extensions are encrypted immediately after the initial key exchange message, concealing the destination identity from middleboxes and network snoopers.`
+      },
+      {
+        id: 'kochi-engineering-colleges',
+        title: 'Kochi & Kerala Engineering Education: Accredited Engineering Colleges & Universities',
+        category: 'Education & Academia',
+        content: `Kochi (Ernakulam district) is one of Kerala's premier educational and technological corridors, hosting leading engineering institutions affiliated with APJ Abdul Kalam Technological University (KTU) and autonomous universities.
+TOP ACCREDITED ENGINEERING COLLEGES IN KOCHI / ERNAKULAM:
+1. Cochin University of Science and Technology (CUSAT) - School of Engineering (Thrikkakara, South Kalamassery, Kochi): Renowned state autonomous university founded in 1971, famed for Computer Science, Information Technology, Safety & Fire Engineering, Marine Engineering, and Electronics.
+2. Govt. Model Engineering College (MEC) (Thrikkakara, Kochi): Established by the Institute of Human Resources Development (IHRD) in 1989. Consistently ranked among Kerala's top engineering colleges for campus recruitment, competitive programming, electronics & communication, and biomedical engineering.
+3. Rajagiri School of Engineering & Technology (RSET) (Rajagiri Valley, Kakkanad, Kochi): Highly ranked autonomous NBA-accredited engineering college situated adjacent to Kochi InfoPark and SmartCity.
+4. Federal Institute of Science and Technology (FISAT) (Hormis Nagar, Mookkannoor, Angamaly, Kochi): Top-tier KTU-affiliated institution known for state-of-the-art computing labs, high-performance computing, and electronics research.
+5. SCMS School of Engineering and Technology (SSET) (Karukutty, Ernakulam / Kochi): Leading private engineering institute known for automobile, civil, and computer engineering.
+6. Muthoot Institute of Technology and Science (MITS) (Varikoli, Puthencruz, Ernakulam): NBA-accredited autonomous institution near Kochi.
+GEOGRAPHICAL & INSTITUTIONAL CLARIFICATIONS:
+- Indian Institute of Technology (IIT) Madras is located in Chennai, Tamil Nadu (NOT in Kochi or Kerala).
+- National Institute of Technology Calicut (NITC) is located in Kozhikode (Calicut), Kerala.
+- Indian Institute of Technology (IIT) Palakkad is located in Palakkad, Kerala.`
       }
     ];
 

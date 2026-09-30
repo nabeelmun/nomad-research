@@ -101,10 +101,15 @@ ${contextBlock}Research Question: ${query}<|im_end|>
       }
     );
 
+    // Strictly verify citations: only keep sources that were actually referenced in the synthesized answer
+    const verifiedCitations = citations.filter(c => 
+      answer.includes(`[${c.id}]`)
+    );
+
     return {
       query,
       answer,
-      citations,
+      citations: verifiedCitations,
       metrics: capturedMetrics
     };
   }

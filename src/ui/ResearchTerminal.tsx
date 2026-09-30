@@ -15,7 +15,9 @@ import {
   FlatList,
   Image,
   Alert,
-  Share
+  Share,
+  Clipboard,
+  Keyboard
 } from 'react-native';
 import { researchSynthesizer, ResearchCitation, ChatMessage } from '../rag/ResearchSynthesizer';
 import { llamaEngine } from '../inference/LlamaEngine';
@@ -65,6 +67,33 @@ export default function ResearchTerminal() {
         { text: 'Cancel', style: 'cancel' }
       ]
     );
+  };
+
+  // Safe In-App Clipboard & Share Handling
+  const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
+
+  const handleCopy = (content: string, msgId: string) => {
+    try {
+      Clipboard.setString(content);
+      setCopiedMsgId(msgId);
+      setTimeout(() => {
+        setCopiedMsgId((prev) => (prev === msgId ? null : prev));
+      }, 2500);
+    } catch (e) {
+      console.warn('Clipboard copy error:', e);
+    }
+  };
+
+  const handleShare = async (content: string) => {
+    try {
+      Keyboard.dismiss();
+      await Share.share(
+        { message: content },
+        { dialogTitle: 'NomadLM Research Synthesis' }
+      );
+    } catch (err) {
+      console.warn('Share error:', err);
+    }
   };
 
   useEffect(() => {
@@ -453,9 +482,15 @@ export default function ResearchTerminal() {
                             />
                           </View>
                           <Text style={styles.assistantCardTitle}>NomadLM</Text>
-                          <View style={styles.groundedTag}>
-                            <Text style={styles.groundedTagText}>GROUNDED</Text>
-                          </View>
+                          {msg.citations && msg.citations.length > 0 ? (
+                            <View style={styles.groundedTag}>
+                              <Text style={styles.groundedTagText}>GROUNDED</Text>
+                            </View>
+                          ) : (
+                            <View style={styles.neuralTag}>
+                              <Text style={styles.neuralTagText}>OFFLINE NEURAL</Text>
+                            </View>
+                          )}
                         </View>
 
                         <View style={styles.assistantCardBody}>
@@ -490,13 +525,25 @@ export default function ResearchTerminal() {
 
                         {/* Action Bar (Share/Copy & Metrics) */}
                         <View style={styles.assistantCardFooter}>
-                          <TouchableOpacity
-                            style={styles.copyBtn}
-                            onPress={() => Share.share({ message: msg.content })}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={styles.copyBtnText}>📋 Share / Copy</Text>
-                          </TouchableOpacity>
+                          <View style={styles.actionsRow}>
+                            <TouchableOpacity
+                              style={[styles.copyBtn, copiedMsgId === msg.id && styles.copiedBtn]}
+                              onPress={() => handleCopy(msg.content, msg.id)}
+                              activeOpacity={0.7}
+                            >
+                              <Text style={[styles.copyBtnText, copiedMsgId === msg.id && styles.copiedBtnText]}>
+                                {copiedMsgId === msg.id ? '✓ Copied' : '📋 Copy'}
+                              </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              style={styles.shareBtn}
+                              onPress={() => handleShare(msg.content)}
+                              activeOpacity={0.7}
+                            >
+                              <Text style={styles.shareBtnText}>↗ Share</Text>
+                            </TouchableOpacity>
+                          </View>
 
                           {msg.metrics && msg.metrics.tokensPerSecond > 0 && (
                             <Text style={styles.cardMetricsText}>
@@ -850,6 +897,7 @@ const styles = StyleSheet.create({
   },
   terminalWrapper: {
     flex: 1,
+    minHeight: 150,
     position: 'relative'
   },
   terminal: {
@@ -969,6 +1017,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.5
   },
+  neuralTag: {
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4
+  },
+  neuralTagText: {
+    color: '#94A3B8',
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.5
+  },
   assistantCardBody: {
     marginTop: 2
   },
@@ -1029,18 +1089,45 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#1A1A1E'
   },
+  actionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8
+  },
   copyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#18181B',
     borderWidth: 1,
     borderColor: '#2E2E33',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 6
   },
   copyBtnText: {
     color: '#D4D4D8',
+    fontSize: 11,
+    fontWeight: '600'
+  },
+  copiedBtn: {
+    backgroundColor: '#064E3B',
+    borderColor: '#059669'
+  },
+  copiedBtnText: {
+    color: '#34D399'
+  },
+  shareBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#2E2E33',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6
+  },
+  shareBtnText: {
+    color: '#A1A1AA',
     fontSize: 11,
     fontWeight: '600'
   },
