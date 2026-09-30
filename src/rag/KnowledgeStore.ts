@@ -19,6 +19,7 @@ export interface SavedChat {
   answer: string;
   citationsJson: string;
   metrics: string;
+  messagesJson?: string;
   createdAt: number;
 }
 
@@ -52,9 +53,16 @@ export class KnowledgeStore {
         answer TEXT NOT NULL,
         citations_json TEXT NOT NULL,
         metrics TEXT,
+        messages_json TEXT,
         created_at INTEGER NOT NULL
       );
     `);
+
+    try {
+      await this.db.execAsync('ALTER TABLE chat_history ADD COLUMN messages_json TEXT;');
+    } catch {
+      // Column may already exist
+    }
 
     // Check if seed data exists
     const countResult = await this.db.getFirstAsync<{ count: number }>(
@@ -114,13 +122,19 @@ export class KnowledgeStore {
     return row ? row.content : null;
   }
 
-  async saveChat(query: string, answer: string, citationsJson: string, metrics: string = ''): Promise<string> {
+  async saveChat(
+    query: string,
+    answer: string,
+    citationsJson: string,
+    metrics: string = '',
+    messagesJson: string = '[]'
+  ): Promise<string> {
     if (!this.db) await this.initialize();
     const id = Date.now().toString();
     try {
       await this.db!.runAsync(
-        'INSERT INTO chat_history (id, query, answer, citations_json, metrics, created_at) VALUES (?, ?, ?, ?, ?, ?);',
-        [id, query, answer, citationsJson, metrics, Date.now()]
+        'INSERT OR REPLACE INTO chat_history (id, query, answer, citations_json, metrics, messages_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?);',
+        [id, query, answer, citationsJson, metrics, messagesJson, Date.now()]
       );
     } catch (e) {
       console.warn('Failed to save chat to history:', e);
@@ -132,7 +146,7 @@ export class KnowledgeStore {
     if (!this.db) await this.initialize();
     try {
       const rows = await this.db!.getAllAsync<any>(
-        'SELECT id, query, answer, citations_json as citationsJson, metrics, created_at as createdAt FROM chat_history ORDER BY created_at DESC LIMIT ?;',
+        'SELECT id, query, answer, citations_json as citationsJson, metrics, messages_json as messagesJson, created_at as createdAt FROM chat_history ORDER BY created_at DESC LIMIT ?;',
         [limit]
       );
       return rows;

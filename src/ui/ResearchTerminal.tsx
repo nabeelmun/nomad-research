@@ -14,17 +14,23 @@ import {
   Modal,
   FlatList
 } from 'react-native';
-import { researchSynthesizer, ResearchCitation } from '../rag/ResearchSynthesizer';
+import { researchSynthesizer, ResearchCitation, ChatMessage } from '../rag/ResearchSynthesizer';
 import { llamaEngine } from '../inference/LlamaEngine';
 import { knowledgeStore, SavedChat } from '../rag/KnowledgeStore';
+import { MarkdownView } from './MarkdownView';
 
 export default function ResearchTerminal() {
   const [query, setQuery] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [statusText, setStatusText] = useState('System Ready (Offline)');
-  const [responseTokens, setResponseTokens] = useState('');
-  const [citations, setCitations] = useState<ResearchCitation[]>([]);
-  const [metrics, setMetrics] = useState<string | null>(null);
+
+  // Multi-turn chat message thread
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [currentStreamingTokens, setCurrentStreamingTokens] = useState('');
+  const [activeCitations, setActiveCitations] = useState<ResearchCitation[]>([]);
+  const [activeMetrics, setActiveMetrics] = useState<string | null>(null);
+
+  // Citation Detail Modal
   const [selectedCitation, setSelectedCitation] = useState<ResearchCitation | null>(null);
 
   // Auto-scroll control
@@ -55,17 +61,30 @@ export default function ResearchTerminal() {
   ];
 
   const handleSearch = async (targetQuery?: string) => {
-    const q = targetQuery || query;
-    if (!q.trim() || isGenerating) return;
+    const q = (targetQuery || query).trim();
+    if (!q || isGenerating) return;
 
-    setQuery(q);
+    const userMsg: ChatMessage = {
+      id: `u-${Date.now()}`,
+      role: 'user',
+      content: q,
+      createdAt: Date.now()
+    };
+
+    const updatedMessages = [...messages, userMsg];
+    setMessages(updatedMessages);
+    setQuery('');
     setIsGenerating(true);
-    setResponseTokens('');
-    setCitations([]);
-    setMetrics(null);
+    setCurrentStreamingTokens('');
+    setActiveCitations([]);
+    setActiveMetrics(null);
     setSelectedCitation(null);
     isUserScrollingRef.current = false;
     setShowScrollBottomPill(false);
+
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 50);
 
     try {
       if (!llamaEngine.isLoaded()) {
@@ -75,9 +94,10 @@ export default function ResearchTerminal() {
       let generatedAnswer = '';
       const res = await researchSynthesizer.executeResearch(
         q,
+        updatedMessages,
         (token) => {
           generatedAnswer += token;
-          setResponseTokens((prev) => prev + token);
+          setCurrentStreamingTokens((prev) => prev + token);
           if (!isUserScrollingRef.current) {
             scrollViewRef.current?.scrollToEnd({ animated: true });
           }
@@ -85,26 +105,62 @@ export default function ResearchTerminal() {
         (status) => setStatusText(status)
       );
 
-      setCitations(res.citations);
+      setActiveCitations(res.citations);
       let metricStr = '';
       if (res.metrics.tokensPerSecond > 0) {
         metricStr = `⚡ ${res.metrics.tokensPerSecond} tok/s  |  ⏱ ${res.metrics.timeToFirstTokenMs}ms TTFT  |  ${res.metrics.totalTokens} tokens`;
-        setMetrics(metricStr);
+        setActiveMetrics(metricStr);
       }
       setStatusText('Offline Research Complete');
 
-      // Auto-save to persistent SQLite history
-      await knowledgeStore.saveChat(q, res.answer || generatedAnswer, JSON.stringify(res.citations), metricStr);
+      const assistantMsg: ChatMessage = {
+        id: `a-${Date.now()}`,
+        role: 'assistant',
+        content: res.answer || generatedAnswer,
+        citations: res.citations,
+        metrics: res.metrics,
+        createdAt: Date.now()
+      };
+
+      const finalMessages = [...updatedMessages, assistantMsg];
+      setMessages(finalMessages);
+      setCurrentStreamingTokens('');
+
+      // Auto-save full multi-turn conversation thread into SQLite
+      await knowledgeStore.saveChat(
+        updatedMessages[0]?.content || q,
+        assistantMsg.content,
+        JSON.stringify(res.citations),
+        metricStr,
+        JSON.stringify(finalMessages)
+      );
     } catch (e: any) {
       const localResults = await knowledgeStore.search(q, 3);
       if (localResults.length > 0) {
         const fallbackCitations = localResults.map((r, i) => ({ id: i + 1, title: r.title, excerpt: r.snippet }));
-        const fallbackAnswer = `[Offline Retrieval Verified]\n\nBased on local offline knowledge index:\n\n${localResults.map((r, i) => `[${i+1}] ${r.title}:\n${r.snippet}`).join('\n\n')}`;
-        setCitations(fallbackCitations);
-        setResponseTokens(fallbackAnswer);
+        const fallbackAnswer = `**[Offline Retrieval Grounded]**\n\nBased on local offline knowledge index:\n\n${localResults.map((r, i) => `**[${i+1}] ${r.title}**:\n${r.snippet}`).join('\n\n')}`;
+
+        const fallbackMsg: ChatMessage = {
+          id: `a-${Date.now()}`,
+          role: 'assistant',
+          content: fallbackAnswer,
+          citations: fallbackCitations,
+          createdAt: Date.now()
+        };
+
+        const finalMessages = [...updatedMessages, fallbackMsg];
+        setMessages(finalMessages);
+        setCurrentStreamingTokens('');
         setStatusText('Offline Retrieval Grounded (Zero Network Used)');
-        setMetrics('⚡ Instant Local RAG (14ms retrieval)');
-        await knowledgeStore.saveChat(q, fallbackAnswer, JSON.stringify(fallbackCitations), '⚡ Instant Local RAG (14ms retrieval)');
+        setActiveMetrics('⚡ Instant Local RAG (14ms retrieval)');
+
+        await knowledgeStore.saveChat(
+          updatedMessages[0]?.content || q,
+          fallbackAnswer,
+          JSON.stringify(fallbackCitations),
+          '⚡ Instant Local RAG (14ms retrieval)',
+          JSON.stringify(finalMessages)
+        );
       } else {
         setStatusText(`Error: ${e.message}`);
       }
@@ -121,8 +177,26 @@ export default function ResearchTerminal() {
       setIsGenerating(false);
       setStatusText('Generation Stopped by User');
       setShowScrollBottomPill(false);
-      if (responseTokens.trim()) {
-        await knowledgeStore.saveChat(query, responseTokens, JSON.stringify(citations), metrics || 'Stopped midway');
+
+      if (currentStreamingTokens.trim()) {
+        const partialMsg: ChatMessage = {
+          id: `a-${Date.now()}`,
+          role: 'assistant',
+          content: currentStreamingTokens,
+          citations: activeCitations,
+          createdAt: Date.now()
+        };
+        const updated = [...messages, partialMsg];
+        setMessages(updated);
+        setCurrentStreamingTokens('');
+
+        await knowledgeStore.saveChat(
+          messages[0]?.content || query,
+          currentStreamingTokens,
+          JSON.stringify(activeCitations),
+          'Stopped midway',
+          JSON.stringify(updated)
+        );
       }
     } catch (err) {
       console.warn('Error stopping generation:', err);
@@ -131,10 +205,11 @@ export default function ResearchTerminal() {
 
   const handleNewChat = () => {
     if (isGenerating) return;
+    setMessages([]);
+    setCurrentStreamingTokens('');
     setQuery('');
-    setResponseTokens('');
-    setCitations([]);
-    setMetrics(null);
+    setActiveCitations([]);
+    setActiveMetrics(null);
     setSelectedCitation(null);
     setStatusText('System Ready (Offline)');
     isUserScrollingRef.current = false;
@@ -148,19 +223,51 @@ export default function ResearchTerminal() {
   };
 
   const handleSelectHistoryItem = (item: SavedChat) => {
-    setQuery(item.query);
-    setResponseTokens(item.answer);
-    try {
-      setCitations(JSON.parse(item.citationsJson || '[]'));
-    } catch {
-      setCitations([]);
+    if (item.messagesJson) {
+      try {
+        const parsed = JSON.parse(item.messagesJson);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed);
+          setQuery('');
+          setCurrentStreamingTokens('');
+          setActiveMetrics(item.metrics || null);
+          setStatusText('Restored from Offline History');
+          setHistoryVisible(false);
+          setTimeout(() => {
+            scrollViewRef.current?.scrollToEnd({ animated: false });
+          }, 100);
+          return;
+        }
+      } catch (e) {
+        // Fallback to legacy single-turn
+      }
     }
-    setMetrics(item.metrics || null);
-    setSelectedCitation(null);
+
+    let fallbackCits = [];
+    try {
+      if (item.citationsJson) fallbackCits = JSON.parse(item.citationsJson);
+    } catch {
+      fallbackCits = [];
+    }
+
+    const restoredMessages: ChatMessage[] = [
+      { id: 'u-restored', role: 'user', content: item.query, createdAt: item.createdAt },
+      {
+        id: 'a-restored',
+        role: 'assistant',
+        content: item.answer,
+        citations: fallbackCits,
+        createdAt: item.createdAt
+      }
+    ];
+    setMessages(restoredMessages);
+    setQuery('');
+    setCurrentStreamingTokens('');
+    setActiveMetrics(item.metrics || null);
     setStatusText('Restored from Offline History');
     setHistoryVisible(false);
     setTimeout(() => {
-      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      scrollViewRef.current?.scrollToEnd({ animated: false });
     }, 100);
   };
 
@@ -204,7 +311,7 @@ export default function ResearchTerminal() {
             </View>
           </View>
           <Text style={styles.telemetryText}>
-            Local On-Device Intelligence • Zero Network Calls
+            Multi-Turn Offline Intelligence • Zero Network Calls
           </Text>
         </View>
 
@@ -224,7 +331,7 @@ export default function ResearchTerminal() {
           </ScrollView>
         </View>
 
-        {/* Response Terminal */}
+        {/* Response Terminal / Conversation Thread */}
         <View style={styles.terminalWrapper}>
           <ScrollView
             ref={scrollViewRef}
@@ -246,31 +353,75 @@ export default function ResearchTerminal() {
             scrollEventThrottle={32}
             keyboardShouldPersistTaps="handled"
           >
-            {responseTokens.length === 0 && !isGenerating ? (
+            {messages.length === 0 && !isGenerating ? (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyTitle}>Offline Research Intelligence</Text>
+                <Text style={styles.emptyTitle}>Offline Conversational Intelligence</Text>
                 <Text style={styles.emptyDesc}>
-                  Ask any technical, practical, or travel query. All models and encyclopedic indexes reside completely on this device.
+                  Ask any research, technical, or travel question. NomadLM remembers prior context across follow-up queries completely offline.
                 </Text>
               </View>
             ) : (
               <View>
-                <Text style={styles.responseText}>{responseTokens}</Text>
+                {/* Rendered Conversation Messages */}
+                {messages.map((msg) => (
+                  <View
+                    key={msg.id}
+                    style={msg.role === 'user' ? styles.userBubbleWrapper : styles.assistantBubbleWrapper}
+                  >
+                    {msg.role === 'user' ? (
+                      <View style={styles.userBubble}>
+                        <Text style={styles.userBubbleText}>{msg.content}</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.assistantBubble}>
+                        <MarkdownView
+                          content={msg.content}
+                          onCitationPress={(citId) => {
+                            const c = msg.citations?.find((item) => item.id === citId);
+                            if (c) setSelectedCitation(c);
+                          }}
+                        />
 
-                {/* Citations Footer */}
-                {citations.length > 0 && (
-                  <View style={styles.citationsBox}>
-                    <Text style={styles.citationsHeader}>GROUNDED SOURCES ({citations.length}):</Text>
-                    {citations.map((c) => (
-                      <TouchableOpacity
-                        key={c.id}
-                        style={styles.citationItem}
-                        onPress={() => setSelectedCitation(c)}
-                      >
-                        <Text style={styles.citationNumber}>[{c.id}]</Text>
-                        <Text style={styles.citationTitle} numberOfLines={1}>{c.title}</Text>
-                      </TouchableOpacity>
-                    ))}
+                        {/* Citations Footer */}
+                        {msg.citations && msg.citations.length > 0 && (
+                          <View style={styles.citationsBox}>
+                            <Text style={styles.citationsHeader}>GROUNDED SOURCES ({msg.citations.length}):</Text>
+                            {msg.citations.map((c) => (
+                              <TouchableOpacity
+                                key={c.id}
+                                style={styles.citationItem}
+                                onPress={() => setSelectedCitation(c)}
+                              >
+                                <Text style={styles.citationNumber}>[{c.id}]</Text>
+                                <Text style={styles.citationTitle} numberOfLines={1}>{c.title}</Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        )}
+                      </View>
+                    )}
+                  </View>
+                ))}
+
+                {/* Active Streaming Bubble */}
+                {isGenerating && (
+                  <View style={styles.assistantBubbleWrapper}>
+                    <View style={styles.assistantBubble}>
+                      {currentStreamingTokens.length > 0 ? (
+                        <MarkdownView
+                          content={currentStreamingTokens}
+                          onCitationPress={(citId) => {
+                            const c = activeCitations.find((item) => item.id === citId);
+                            if (c) setSelectedCitation(c);
+                          }}
+                        />
+                      ) : (
+                        <View style={styles.streamingPlaceholder}>
+                          <ActivityIndicator size="small" color="#4ADE80" style={{ marginRight: 8 }} />
+                          <Text style={styles.streamingPlaceholderText}>Consulting local knowledge base...</Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
                 )}
               </View>
@@ -286,9 +437,9 @@ export default function ResearchTerminal() {
         </View>
 
         {/* Telemetry Bar */}
-        {metrics && (
+        {activeMetrics && (
           <View style={styles.metricsBar}>
-            <Text style={styles.metricsText}>{metrics}</Text>
+            <Text style={styles.metricsText}>{activeMetrics}</Text>
           </View>
         )}
 
@@ -302,7 +453,7 @@ export default function ResearchTerminal() {
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
-            placeholder="Ask research, travel, or practical questions..."
+            placeholder={messages.length > 0 ? "Ask follow-up with context..." : "Ask research, travel, or practical questions..."}
             placeholderTextColor="#666"
             value={query}
             onChangeText={setQuery}
@@ -355,7 +506,7 @@ export default function ResearchTerminal() {
             {chatHistory.length === 0 ? (
               <View style={styles.emptyHistoryBox}>
                 <Text style={styles.emptyHistoryText}>No saved offline sessions yet.</Text>
-                <Text style={styles.emptyHistorySubText}>Searches will automatically save here so you can review them anytime.</Text>
+                <Text style={styles.emptyHistorySubText}>Past conversation threads automatically save here so you can review them anytime.</Text>
               </View>
             ) : (
               <FlatList
@@ -511,31 +662,69 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20
   },
-  responseText: {
-    color: '#E0E0E0',
+  userBubbleWrapper: {
+    alignItems: 'flex-end',
+    marginVertical: 6
+  },
+  userBubble: {
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: '#334155',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
+    borderBottomRightRadius: 4,
+    maxWidth: '85%'
+  },
+  userBubbleText: {
+    color: '#FFFFFF',
     fontSize: 15,
-    lineHeight: 24,
-    letterSpacing: 0.2
+    fontWeight: '500',
+    lineHeight: 22
+  },
+  assistantBubbleWrapper: {
+    alignItems: 'flex-start',
+    marginVertical: 6,
+    width: '100%'
+  },
+  assistantBubble: {
+    backgroundColor: '#111111',
+    borderWidth: 1,
+    borderColor: '#242424',
+    padding: 14,
+    borderRadius: 16,
+    borderBottomLeftRadius: 4,
+    width: '100%'
+  },
+  streamingPlaceholder: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4
+  },
+  streamingPlaceholderText: {
+    color: '#888',
+    fontSize: 13,
+    fontStyle: 'italic'
   },
   citationsBox: {
-    marginTop: 24,
-    padding: 12,
-    backgroundColor: '#121212',
+    marginTop: 18,
+    padding: 10,
+    backgroundColor: '#0A0A0A',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#222'
+    borderColor: '#1E1E1E'
   },
   citationsHeader: {
     color: '#888',
     fontSize: 11,
     fontWeight: '700',
-    marginBottom: 8,
+    marginBottom: 6,
     letterSpacing: 0.5
   },
   citationItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6
+    marginBottom: 4
   },
   citationNumber: {
     color: '#4ADE80',

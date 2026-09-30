@@ -1,0 +1,305 @@
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+
+interface MarkdownViewProps {
+  content: string;
+  onCitationPress?: (citationId: number) => void;
+}
+
+export const MarkdownView: React.FC<MarkdownViewProps> = React.memo(({ content, onCitationPress }) => {
+  if (!content) return null;
+
+  const lines = content.split('\n');
+  const renderedElements: React.ReactNode[] = [];
+  let inCodeBlock = false;
+  let codeBlockLines: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Handle code blocks ```
+    if (line.trim().startsWith('```')) {
+      if (inCodeBlock) {
+        renderedElements.push(
+          <View key={`code-${i}`} style={styles.codeBlock}>
+            <Text style={styles.codeText}>{codeBlockLines.join('\n')}</Text>
+          </View>
+        );
+        codeBlockLines = [];
+        inCodeBlock = false;
+      } else {
+        inCodeBlock = true;
+      }
+      continue;
+    }
+
+    if (inCodeBlock) {
+      codeBlockLines.push(line);
+      continue;
+    }
+
+    const trimmed = line.trim();
+
+    // Empty line -> spacing
+    if (!trimmed) {
+      renderedElements.push(<View key={`spacer-${i}`} style={styles.lineSpacer} />);
+      continue;
+    }
+
+    // Headings
+    if (trimmed.startsWith('### ')) {
+      renderedElements.push(
+        <Text key={`h3-${i}`} style={styles.h3}>
+          {renderInlineFormatting(trimmed.substring(4), onCitationPress)}
+        </Text>
+      );
+      continue;
+    }
+
+    if (trimmed.startsWith('## ')) {
+      renderedElements.push(
+        <Text key={`h2-${i}`} style={styles.h2}>
+          {renderInlineFormatting(trimmed.substring(3), onCitationPress)}
+        </Text>
+      );
+      continue;
+    }
+
+    if (trimmed.startsWith('# ')) {
+      renderedElements.push(
+        <Text key={`h1-${i}`} style={styles.h1}>
+          {renderInlineFormatting(trimmed.substring(2), onCitationPress)}
+        </Text>
+      );
+      continue;
+    }
+
+    // Blockquotes >
+    if (trimmed.startsWith('> ')) {
+      renderedElements.push(
+        <View key={`quote-${i}`} style={styles.blockquote}>
+          <Text style={styles.blockquoteText}>
+            {renderInlineFormatting(trimmed.substring(2), onCitationPress)}
+          </Text>
+        </View>
+      );
+      continue;
+    }
+
+    // Bullet lists - or *
+    if (/^[\*\-]\s+/.test(trimmed)) {
+      const itemText = trimmed.replace(/^[\*\-]\s+/, '');
+      renderedElements.push(
+        <View key={`bullet-${i}`} style={styles.listRow}>
+          <Text style={styles.bulletSymbol}>•</Text>
+          <Text style={styles.listText}>
+            {renderInlineFormatting(itemText, onCitationPress)}
+          </Text>
+        </View>
+      );
+      continue;
+    }
+
+    // Numbered lists 1. 2. etc
+    const numMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
+    if (numMatch) {
+      renderedElements.push(
+        <View key={`num-${i}`} style={styles.listRow}>
+          <Text style={styles.numSymbol}>{numMatch[1]}.</Text>
+          <Text style={styles.listText}>
+            {renderInlineFormatting(numMatch[2], onCitationPress)}
+          </Text>
+        </View>
+      );
+      continue;
+    }
+
+    // Normal paragraph
+    renderedElements.push(
+      <Text key={`p-${i}`} style={styles.paragraph}>
+        {renderInlineFormatting(trimmed, onCitationPress)}
+      </Text>
+    );
+  }
+
+  // Handle trailing unclosed code block (e.g. while actively streaming)
+  if (inCodeBlock && codeBlockLines.length > 0) {
+    renderedElements.push(
+      <View key="code-unclosed" style={styles.codeBlock}>
+        <Text style={styles.codeText}>{codeBlockLines.join('\n')}</Text>
+      </View>
+    );
+  }
+
+  return <View style={styles.container}>{renderedElements}</View>;
+});
+
+/**
+ * Parses inline tokens: **bold**, *italic*, `code`, and [1] citations
+ */
+function renderInlineFormatting(
+  text: string,
+  onCitationPress?: (citationId: number) => void
+): React.ReactNode[] {
+  const regex = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[\d+\])/g;
+  const parts = text.split(regex);
+
+  return parts.map((part, index) => {
+    if (!part) return null;
+
+    if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+      return (
+        <Text key={`b-${index}`} style={styles.bold}>
+          {part.substring(2, part.length - 2)}
+        </Text>
+      );
+    }
+
+    if (part.startsWith('*') && part.endsWith('*') && part.length >= 2) {
+      return (
+        <Text key={`i-${index}`} style={styles.italic}>
+          {part.substring(1, part.length - 1)}
+        </Text>
+      );
+    }
+
+    if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
+      return (
+        <Text key={`c-${index}`} style={styles.inlineCode}>
+          {part.substring(1, part.length - 1)}
+        </Text>
+      );
+    }
+
+    const citationMatch = part.match(/^\[(\d+)\]$/);
+    if (citationMatch) {
+      const citNum = parseInt(citationMatch[1], 10);
+      return (
+        <Text
+          key={`cit-${index}`}
+          style={styles.citationBadge}
+          onPress={() => onCitationPress?.(citNum)}
+        >
+          {part}
+        </Text>
+      );
+    }
+
+    return <Text key={`t-${index}`}>{part}</Text>;
+  });
+}
+
+const styles = StyleSheet.create({
+  container: {
+    width: '100%'
+  },
+  paragraph: {
+    color: '#E0E0E0',
+    fontSize: 15,
+    lineHeight: 23,
+    marginBottom: 4,
+    letterSpacing: 0.2
+  },
+  h1: {
+    color: '#FFFFFF',
+    fontSize: 19,
+    fontWeight: '800',
+    marginTop: 10,
+    marginBottom: 6,
+    letterSpacing: 0.3
+  },
+  h2: {
+    color: '#4ADE80',
+    fontSize: 16,
+    fontWeight: '700',
+    marginTop: 8,
+    marginBottom: 4,
+    letterSpacing: 0.2
+  },
+  h3: {
+    color: '#F3F4F6',
+    fontSize: 15,
+    fontWeight: '700',
+    marginTop: 6,
+    marginBottom: 3
+  },
+  bold: {
+    fontWeight: '700',
+    color: '#FFFFFF'
+  },
+  italic: {
+    fontStyle: 'italic',
+    color: '#CBD5E1'
+  },
+  inlineCode: {
+    fontFamily: 'monospace',
+    backgroundColor: '#1E293B',
+    color: '#38BDF8',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+    fontSize: 13
+  },
+  codeBlock: {
+    backgroundColor: '#141414',
+    borderColor: '#262626',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginVertical: 8
+  },
+  codeText: {
+    color: '#38BDF8',
+    fontFamily: 'monospace',
+    fontSize: 13,
+    lineHeight: 18
+  },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginVertical: 2,
+    paddingLeft: 4
+  },
+  bulletSymbol: {
+    color: '#4ADE80',
+    fontSize: 15,
+    marginRight: 8,
+    lineHeight: 22
+  },
+  numSymbol: {
+    color: '#4ADE80',
+    fontSize: 14,
+    fontWeight: '700',
+    marginRight: 6,
+    lineHeight: 22
+  },
+  listText: {
+    flex: 1,
+    color: '#E0E0E0',
+    fontSize: 15,
+    lineHeight: 22
+  },
+  blockquote: {
+    borderLeftWidth: 3,
+    borderLeftColor: '#4ADE80',
+    paddingLeft: 10,
+    marginVertical: 6
+  },
+  blockquoteText: {
+    color: '#94A3B8',
+    fontStyle: 'italic',
+    fontSize: 14,
+    lineHeight: 20
+  },
+  citationBadge: {
+    color: '#4ADE80',
+    fontWeight: '800',
+    backgroundColor: '#1E3A24',
+    paddingHorizontal: 4,
+    borderRadius: 4,
+    fontSize: 13
+  },
+  lineSpacer: {
+    height: 6
+  }
+});

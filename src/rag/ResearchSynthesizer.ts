@@ -7,6 +7,15 @@ export interface ResearchCitation {
   excerpt: string;
 }
 
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  citations?: ResearchCitation[];
+  metrics?: GenerationMetrics;
+  createdAt: number;
+}
+
 export interface ResearchResult {
   query: string;
   answer: string;
@@ -17,6 +26,7 @@ export interface ResearchResult {
 export class ResearchSynthesizer {
   async executeResearch(
     query: string,
+    history: ChatMessage[] = [],
     onTokenChunk: (token: string) => void,
     onStatusUpdate?: (status: string) => void
   ): Promise<ResearchResult> {
@@ -40,12 +50,23 @@ export class ResearchSynthesizer {
 
     const systemPrompt = `<|im_start|>system
 You are NomadLM, an advanced offline scientific and research assistant running natively on mobile hardware without network access.
-Your goal is to provide deep, analytical, well-reasoned explanations, comparisons, and syntheses based on the provided reference material and your internal reasoning.
+Your goal is to provide deep, analytical, well-reasoned explanations, comparisons, and syntheses based on the provided reference material, past conversation context, and your internal reasoning.
 Cite your sources using bracketed numbers like [1] or [2] whenever referencing specific facts from the grounded references. Be concise, structured, and factual.<|im_end|>
-<|im_start|>user
+`;
+
+    // Multi-turn context: roll last 4 messages (2 exchanges) to maintain conversational memory within mobile context limit
+    let historyBlock = '';
+    const recentHistory = history.filter(m => m.content && m.content.trim().length > 0).slice(-4);
+    for (const msg of recentHistory) {
+      historyBlock += `<|im_start|>${msg.role}\n${msg.content}<|im_end|>\n`;
+    }
+
+    const currentTurn = `<|im_start|>user
 ${contextBlock}Research Question: ${query}<|im_end|>
 <|im_start|>assistant
 `;
+
+    const fullPrompt = `${systemPrompt}${historyBlock}${currentTurn}`;
 
     let capturedMetrics: GenerationMetrics = {
       timeToFirstTokenMs: 0,
@@ -55,7 +76,7 @@ ${contextBlock}Research Question: ${query}<|im_end|>
     };
 
     const answer = await llamaEngine.generateCompletion(
-      systemPrompt,
+      fullPrompt,
       onTokenChunk,
       (metrics) => {
         capturedMetrics = metrics;
