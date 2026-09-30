@@ -75,7 +75,7 @@ export class LlamaEngine {
 
       this.context = await initLlama({
         model: modelPath,
-        use_mlock: true,
+        use_mlock: false,
         n_ctx: contextSize,
         n_threads: threads,
         n_gpu_layers: Platform.OS === 'ios' ? 99 : 0 // Metal GPU acceleration on iOS, CPU on Android
