@@ -48,6 +48,25 @@ export default function ResearchTerminal() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [chatHistory, setChatHistory] = useState<SavedChat[]>([]);
 
+  // Active Location (Offline City Resolver)
+  const [currentCity, setCurrentCity] = useState('Kochi');
+
+  const handleSelectCityPrompt = () => {
+    Alert.alert(
+      'Active Offline Location',
+      'Select or switch your current city for offline location-aware travel & dining queries:',
+      [
+        { text: '📍 Kochi, India', onPress: () => setCurrentCity('Kochi') },
+        { text: '📍 Lisbon, Portugal', onPress: () => setCurrentCity('Lisbon') },
+        { text: '📍 Tokyo, Japan', onPress: () => setCurrentCity('Tokyo') },
+        { text: '📍 London, UK', onPress: () => setCurrentCity('London') },
+        { text: '📍 Paris, France', onPress: () => setCurrentCity('Paris') },
+        { text: '📍 New York, USA', onPress: () => setCurrentCity('New York') },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
+  };
+
   useEffect(() => {
     knowledgeStore.initialize().catch(console.error);
     llamaEngine.autoInitialize().then((loaded) => {
@@ -57,15 +76,6 @@ export default function ResearchTerminal() {
       }
     }).catch(console.error);
   }, []);
-
-  const benchmarkPresets = [
-    { label: '📍 City I\'m in (Lisbon)', q: 'What are the best vegan and vegetarian dining spots and sights in Lisbon, Portugal?' },
-    { label: 'STARKs vs SNARKs', q: 'Compare STARKs and SNARKs in terms of trusted setup, quantum resistance, and proof sizes.' },
-    { label: '🚗 Jumpstart Car', q: 'How do I jumpstart a car if it is not starting? Step by step safety instructions.' },
-    { label: '🍝 Aglio e Olio', q: 'How do I cook authentic Spaghetti Aglio e Olio? Exact ratios, temperatures, and emulsification steps.' },
-    { label: '1973 Oil Shock', q: 'How did the 1973 oil embargo restructure Japanese industrial and microelectronics policy?' },
-    { label: 'BFT Bound', q: 'Explain why Byzantine Fault Tolerance requires n >= 3f + 1 in asynchronous networks.' }
-  ];
 
   const handleOpenDrawer = async () => {
     const list = await knowledgeStore.getChatHistory(40);
@@ -105,6 +115,13 @@ export default function ResearchTerminal() {
       scrollViewRef.current?.scrollToEnd({ animated: true });
     }, 50);
 
+    // Location context expansion for local/nearby queries
+    let effectiveQuery = q;
+    const locationTriggers = [/current city/i, /city i'?m in/i, /near me/i, /where i am/i, /\[your current city\]/i];
+    if (locationTriggers.some(re => re.test(q))) {
+      effectiveQuery = `${q} (Location: ${currentCity})`;
+    }
+
     try {
       if (!llamaEngine.isLoaded()) {
         setStatusText('Searching local offline knowledge store...');
@@ -112,7 +129,7 @@ export default function ResearchTerminal() {
 
       let generatedAnswer = '';
       const res = await researchSynthesizer.executeResearch(
-        q,
+        effectiveQuery,
         updatedMessages,
         (token) => {
           generatedAnswer += token;
@@ -155,7 +172,7 @@ export default function ResearchTerminal() {
         JSON.stringify(finalMessages)
       );
     } catch (e: any) {
-      const localResults = await knowledgeStore.search(q, 3);
+      const localResults = await knowledgeStore.search(effectiveQuery, 3);
       if (localResults.length > 0) {
         const fallbackCitations = localResults.map((r, i) => ({ id: i + 1, title: r.title, excerpt: r.snippet }));
         const fallbackAnswer = `**[Offline Retrieval Grounded]**\n\nBased on local offline knowledge index:\n\n${localResults.map((r, i) => `**[${i+1}] ${r.title}**:\n${r.snippet}`).join('\n\n')}`;
@@ -356,6 +373,16 @@ export default function ResearchTerminal() {
 
           <View style={styles.headerRight}>
             <TouchableOpacity
+              style={styles.locationHeaderBtn}
+              onPress={handleSelectCityPrompt}
+              activeOpacity={0.7}
+              disabled={isGenerating}
+            >
+              <Text style={styles.locationHeaderIcon}>📍</Text>
+              <Text style={styles.locationHeaderText}>{currentCity}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
               style={styles.newChatHeaderBtn}
               onPress={handleNewChat}
               activeOpacity={0.7}
@@ -365,23 +392,6 @@ export default function ResearchTerminal() {
               <Text style={styles.newChatHeaderText}>New</Text>
             </TouchableOpacity>
           </View>
-        </View>
-
-        {/* Quick Benchmark Chips */}
-        <View style={styles.presetContainer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetScroll}>
-            {benchmarkPresets.map((preset, idx) => (
-              <TouchableOpacity
-                key={idx}
-                style={styles.presetChip}
-                onPress={() => handleSearch(preset.q)}
-                disabled={isGenerating}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.presetChipText}>{preset.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
         </View>
 
         {/* Response Terminal / Conversation Thread */}
@@ -419,26 +429,6 @@ export default function ResearchTerminal() {
                 <Text style={styles.emptyDesc}>
                   Ask practical questions, world travel advice, or deep technical comparisons. Runs 100% on your device hardware with zero internet connectivity.
                 </Text>
-
-                <View style={styles.suggestedGrid}>
-                  <TouchableOpacity
-                    style={styles.suggestCard}
-                    onPress={() => handleSearch('How do I jumpstart a car if it is not starting? Step by step safety instructions.')}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.suggestCardTitle}>🚗 Jumpstart a Dead Car</Text>
-                    <Text style={styles.suggestCardSub}>Grounded roadside safety & connection order</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.suggestCard}
-                    onPress={() => handleSearch('What are the best vegan and vegetarian dining spots in Lisbon and what makes them special?')}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.suggestCardTitle}>🇵🇹 Lisbon Vegan Dining</Text>
-                    <Text style={styles.suggestCardSub}>Wikivoyage grounded places & sights</Text>
-                  </TouchableOpacity>
-                </View>
               </View>
             ) : (
               <View>
@@ -817,7 +807,27 @@ const styles = StyleSheet.create({
   },
   headerRight: {
     flexDirection: 'row',
-    alignItems: 'center'
+    alignItems: 'center',
+    gap: 8
+  },
+  locationHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8
+  },
+  locationHeaderIcon: {
+    fontSize: 11
+  },
+  locationHeaderText: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '600'
   },
   newChatHeaderBtn: {
     flexDirection: 'row',
@@ -837,28 +847,6 @@ const styles = StyleSheet.create({
     color: '#FAFAFA',
     fontSize: 12,
     fontWeight: '600'
-  },
-  presetContainer: {
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#141417'
-  },
-  presetScroll: {
-    paddingHorizontal: 16,
-    gap: 8
-  },
-  presetChip: {
-    backgroundColor: '#141417',
-    borderWidth: 1,
-    borderColor: '#27272A',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16
-  },
-  presetChipText: {
-    color: '#A1A1AA',
-    fontSize: 12,
-    fontWeight: '500'
   },
   terminalWrapper: {
     flex: 1,
@@ -906,28 +894,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 20,
-    marginBottom: 28
-  },
-  suggestedGrid: {
-    width: '100%',
-    gap: 10
-  },
-  suggestCard: {
-    backgroundColor: '#121215',
-    borderWidth: 1,
-    borderColor: '#27272A',
-    padding: 14,
-    borderRadius: 12
-  },
-  suggestCardTitle: {
-    color: '#E4E4E7',
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 2
-  },
-  suggestCardSub: {
-    color: '#71717A',
-    fontSize: 12
+    maxWidth: 320
   },
   userBubbleWrapper: {
     alignItems: 'flex-end',

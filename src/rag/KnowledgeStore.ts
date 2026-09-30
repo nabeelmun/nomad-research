@@ -64,12 +64,12 @@ export class KnowledgeStore {
       // Column may already exist
     }
 
-    // Check if seed data exists and has all 8 foundational articles
+    // Check if seed data exists and has all 20 foundational benchmark articles
     const countResult = await this.db.getFirstAsync<{ count: number }>(
       'SELECT COUNT(*) as count FROM articles;'
     );
 
-    if (!countResult || countResult.count < 8) {
+    if (!countResult || countResult.count < 20) {
       await this.populateSeedCorpus();
     }
   }
@@ -275,6 +275,160 @@ Key destinations and dining:
 2. Arashiyama Bamboo Grove & Tenryu-ji: A UNESCO World Heritage Zen temple with Shigetsu, serving traditional Shojin Ryori (Buddhist temple vegetarian cuisine) adhering to seasonal harmony.
 3. Gion District & Higashiyama: Preserved Edo-period machiya merchant townhouses, stone-paved alleys, and traditional teahouses along Hanamikoji Street.
 4. Kinkaku-ji (The Golden Pavilion): A Zen Buddhist temple whose top two floors are completely covered in gold leaf overlooking the Kyoko-chi mirror pond.`
+      },
+      {
+        id: 'kochi-dining-heritage',
+        title: 'Kochi Travel & Culinary Guide: Traditional Biryani, Medical Shops & Airport Transit',
+        category: 'Travel & Dining',
+        content: `Kochi (Cochin), the historic spice port of Kerala on the Arabian Sea, combines centuries of Portuguese, Dutch, British, and Arab maritime heritage.
+TOP BIRYANI & TRADITIONAL DINING SPOTS:
+1. Kayees Rahmathulla Hotel (Gujarathi Road, Mattancherry): Legendary culinary institution renowned for authentic Malabar mutton dum biryani. Cooked with fragrant small-grain Jeerakasala (Khyma) rice, marinated mutton, pure ghee, and slow woodfire steam, served with sweet-sour dates pickle, coconut chammanthi, and spiced raita.
+2. Paragon Restaurant (Lulu Mall & Marine Drive, Ernakulam): Celebrated Malabar kitchen famous for Kozhikode-style chicken biryani, tender mutton biryani, appam, and fish mango curry.
+3. Jeff Biriyani (Thoppumpady & Panampilly Nagar): Famed for slow-cooked woodfire dum biryani with melt-in-mouth meat.
+4. Grand Hotel (MG Road, Ernakulam): Renowned for traditional Travancore-Cochin mutton biryani and banana-leaf Karimeen Pollichathu.
+LATE NIGHT MEDICAL SHOPS & 24/7 PHARMACIES:
+- 24/7 round-the-clock pharmacies are located directly opposite Ernakulam General Hospital (Hospital Road) and along MG Road near Medical Trust Hospital and Maharajas College junction.
+AIRPORT TO DOWNTOWN TRANSIT & LAST TRAIN:
+- From Cochin International Airport (COK) to downtown Ernakulam: Board the KSRTC low-floor electric AC feeder bus directly outside the arrival terminal to Aluva Metro Station (25 minutes). At Aluva, board the Kochi Metro Blue Line directly to downtown (MG Road or Maharaja's College Station, 35 minutes). The last Kochi Metro train departs Aluva Station at 22:30 (10:30 PM).`
+      },
+      {
+        id: 'world-transit-airports',
+        title: 'Global Transit Guide: Airport to Downtown Routes & Last Train Schedules',
+        category: 'World Travel & Transit',
+        content: `Comprehensive transit connections between major international airports and city centers:
+1. Lisbon (LIS - Humberto Delgado Airport): The Metro Red Line (Linha Vermelha) departs directly from Aeroporto station. Take the Red Line to Alameda (transfer to Green Line for Baixa-Chiado or Cais do Sodré) or Saldanha (transfer to Yellow Line). Total transit time: 25 minutes. Last Metro train departs Aeroporto station at 01:00 AM daily.
+2. Tokyo (HND - Haneda Airport): Tokyo Monorail Haneda Express reaches Hamamatsucho Station in 13 minutes (transfer to JR Yamanote Line; last monorail ~00:10). Keikyu Airport Line Airport Limited Express reaches Shinagawa Station in 11 minutes (last train ~00:00).
+3. London (LHR - Heathrow Airport): The Elizabeth Line provides fast direct transit to Paddington (30 mins) and central London (Tottenham Court Road/Liverpool St; last train ~00:07). The Piccadilly Line underground operates late night into central London (last train ~23:45–00:15).
+4. Paris (CDG - Charles de Gaulle): RER B regional train runs from CDG Terminal 2 and Roissypole directly to Gare du Nord and Châtelet-Les Halles (approx 35 mins; last train departs CDG at ~23:50).
+5. New York (JFK): AirTrain JFK operates 24/7 to Jamaica Station (10 mins), connecting to Long Island Rail Road (LIRR) into Grand Central Madison or Penn Station (20 mins, 24/7) or the E subway train.`
+      },
+      {
+        id: 'small-town-itinerary',
+        title: 'Universal Travel Strategy: 4-Hour Small Town Exploration Blueprint',
+        category: 'Travel Strategy',
+        content: `Practical 4-hour framework for exploring small heritage towns, regional market centers, or villages outside major capital cities:
+- Hour 1 (Historic Heart & Central Square): Arrive at the town center (Marktplatz, Piazza, or Town Green). Walk the pedestrianized historic core on foot. Observe traditional local masonry, timber framing, ancient parish water fountains, and municipal heraldry.
+- Hour 2 (Primary Heritage Monument): Visit the town's single defining historical monument—a medieval castle keep, stone cathedral/abbey, guildhall, or local municipal museum. Small town museums offer deep, uncrowded access to regional craft history, archaeological finds, and regional wartime archives.
+- Hour 3 (Regional Culinary Tasting & Market): Head to an independent local bakery, artisanal cheese monger, or market hall. Sample region-specific delicacies (e.g. regional pastries, local cheeses, smoked meats, artisanal ciders or roast coffee) that reflect micro-regional agriculture.
+- Hour 4 (Panoramic Viewpoint or Waterside Walk): Take a 30-to-40-minute walk along the town's defensive ramparts, riverbank promenade, or hilltop chapel trail for panoramic landscape views of the surrounding valley or coast before heading to the station for departure.`
+      },
+      {
+        id: 'ethereum-merge',
+        title: 'Blockchain Architecture: The Ethereum Merge Execution & Specifications',
+        category: 'Blockchain Technology',
+        content: `The Ethereum Merge was the historic transition of the Ethereum network from Proof of Work (PoW) to Proof of Stake (PoS) consensus.
+EXACT TECHNICAL SPECIFICATIONS:
+- Mainnet Block Height: The Merge occurred at execution block height 15,537,393.
+- Date and Time: September 15, 2022 at 06:42:42 UTC.
+- Terminal Total Difficulty (TTD): The transition was triggered when the Proof of Work chain reached the predetermined cumulative difficulty threshold of exactly 58,750,000,000,000,000,000,000 (58.75 sextillion).
+- Architecture: Merged the original execution layer (formerly Eth1) with the Beacon Chain consensus layer (Eth2) through the Engine API.
+- Impact: Reduced Ethereum's global energy consumption by over 99.95% and eliminated miner block subsidies, transitioning issuance to validator staking yields combined with EIP-1559 base fee burning.`
+      },
+      {
+        id: 'hostage-crisis-operation',
+        title: 'Military History: Operation Eagle Claw (1980 Iran Hostage Crisis Rescue)',
+        category: 'Military History',
+        content: `Operation Eagle Claw (also referred to as Operation Evening Light) was a joint United States Armed Forces military operation ordered by President Jimmy Carter.
+EXACT MISSION DETAILS:
+- Objective: Attempted rescue of 52 American diplomats and citizens held hostage inside the US Embassy in Tehran, Iran, following the 1979 Iranian Revolution.
+- Execution Dates: April 24–25, 1980.
+- Staging Location: Desert One, an austere desert landing zone in the Dasht-e Kavir salt desert of eastern Iran, approximately 200 miles southeast of Tehran.
+- Mission Abort & Collision: Encountering severe localized dust storms (haboob), two RH-53D Sea Stallion helicopters experienced mechanical instrument failures and a third suffered a cracked rotor blade, reducing the operational helicopter count below the minimum six required for mission viability. While maneuvering for evacuation at Desert One, an RH-53D helicopter collided with an EC-130 Hercules transport aircraft loaded with fuel. The resulting fireball killed eight American servicemembers (five Air Force, three Marines).
+- Long-term Legacy: The organizational and communication deficiencies exposed at Desert One directly spurred the Goldwater-Nichols Act of 1986 and the creation of the United States Special Operations Command (USSOCOM).`
+      },
+      {
+        id: 'novel-thursday',
+        title: 'Literary History: The Man Who Was Thursday by G. K. Chesterton',
+        category: 'Literature & Philosophy',
+        content: `The Man Who Was Thursday: A Nightmare is a renowned metaphysical and philosophical thriller novel.
+KEY FACTUAL DETAILS:
+- Author: Gilbert Keith (G. K.) Chesterton.
+- Publication Year: 1908.
+- Plot & Structure: Set in Edwardian London, the story follows Gabriel Syme, a poet recruited by a secret philosophical police division created to combat intellectual anarchism. Syme successfully infiltrates the Central European Anarchist Council, a secret cabal of seven men each named after a day of the week. Syme is elected to the post of 'Thursday'.
+- The Central Figure: The council is presided over by the enigmatic, monstrously massive President named 'Sunday'. As Syme investigates, he discovers that the other anarchist council members are also disguised undercover detectives with identical missions.
+- Themes: A profound Christian theological allegory examining skepticism, the problem of evil, suffering, existential pessimism, and divine sovereignty.`
+      },
+      {
+        id: 'nauru-demographics',
+        title: 'Geopolitical & Economic Profile: Republic of Nauru Demographics in the 2010s',
+        category: 'Geopolitics & Economics',
+        content: `The Republic of Nauru is an isolated oval-shaped island nation in Micronesia (Central Pacific) with a total land area of 21 square kilometers (8.1 sq mi).
+DEMOGRAPHICS & POPULATION:
+- Resident Population in the 2010s: Between 10,000 and 12,500 residents (2011 census recorded 10,084; mid-decade estimates ~11,200). It is the third-smallest sovereign country by population in the world, behind Vatican City and Tuvalu.
+MAIN ECONOMIC ACTIVITIES IN THE 2010s:
+1. Australian Regional Processing Centre (RPC): Reopened under Australia's revived Pacific Solution policy in August 2012, offshore immigration detention and administrative hosting for asylum seekers became Nauru's predominant source of government revenue, foreign aid, and private sector employment.
+2. Residual Phosphate Mining: Secondary extraction of remaining deeper phosphate deposits by state-owned RONPHOS (though output was a fraction of its 1970s peak strip-mining era).
+3. Fisheries Licensing: Generating foreign exchange by selling purse-seine tuna fishing license days under the Parties to the Nauru Agreement (PNA) Vessel Day Scheme.`
+      },
+      {
+        id: 'iec-connectors',
+        title: 'Electrical Standards: IEC 60320 C13 vs C15 Appliance Couplers',
+        category: 'Electrical Engineering',
+        content: `IEC 60320 is the international electrotechnical standard governing appliance couplers for household and similar general purposes up to 250V and 16A.
+PHYSICAL AND THERMAL DISTINCTIONS:
+- IEC C13 Connector: Standard un-notched female coupler rated for a maximum operating pin temperature of 70°C ("cold condition"). Mates with standard IEC C14 male inlets. Commonly used on desktop computer power supplies, monitors, instrument amplifiers, and office peripherals.
+- IEC C15 Connector: High-temperature female coupler featuring a distinct mechanical notch (cutout groove) centered on the bottom base below the ground earth pin. Rated for a maximum operating pin temperature of 120°C ("hot condition").
+MANDATED USAGE & APPLICATIONS:
+- C15 cords are legally required on heat-generating appliances where current draw generates elevated inlet temperatures, notably electric kettles, commercial waffle irons, high-output stage spotlights, enterprise PoE network switches, and high-wattage server Power Supply Units (PSUs).
+SAFETY KEYWAY INTEROPERABILITY:
+- A high-temperature C15 cord CAN be plugged into a standard 70°C C14 inlet (backwards compatible).
+- A standard 70°C C13 cord CANNOT be plugged into a high-temperature 120°C C16 inlet because the missing notch physically blocks insertion, preventing low-temperature cords from melting on hot appliances.`
+      },
+      {
+        id: 'gfci-troubleshooting',
+        title: 'Electrical Safety: Resetting and Troubleshooting a Tripping GFCI Outlet',
+        category: 'Electrical Safety',
+        content: `A Ground Fault Circuit Interrupter (GFCI / RCD) continuously compares current flow between the hot and neutral conductors, instantly opening the circuit within 25 milliseconds if an imbalance of 4 to 6 milliamperes (mA) is detected.
+SAFE PROCEDURAL CHECKS BEFORE CALLING AN ELECTRICIAN:
+1. Disconnect All Devices: Unplug every single electrical appliance, power strip, and cord plugged into the GFCI outlet AND all standard outlets located downstream on the same branch circuit (bathrooms, kitchens, garages, and exterior outlets are frequently daisy-chained to one master GFCI).
+2. Physical & Moisture Inspection: Visually inspect the outlet faceplate and junction box for condensation, liquid spills, outdoor rain intrusion, carbon charring, or melted plastic. WARNING: If the receptacle is wet or warm to the touch, do NOT touch it—switch off the main breaker immediately.
+3. Verify Main Breaker: Ensure the main electrical service panel breaker controlling the room is firmly in the ON position (not tripped halfway). Modern tamper-resistant/self-testing GFCIs require incoming 120V/230V line voltage to mechanically engage and latch the internal reset coil.
+4. Firm Reset Engagement: Press the RESET button firmly into the face of the outlet until a distinct mechanical click is felt and heard. The status indicator LED should illuminate green or turn off (depending on model).
+5. Load Isolation Test: Plug in appliances one by one. If plugging in one specific appliance (e.g. toaster, hair dryer, power tool) instantly causes the GFCI to trip, that individual appliance has an internal insulation breakdown (ground fault) and must be repaired or discarded.
+6. Outlet Failure Check: If the GFCI trips immediately with absolutely ZERO appliances connected to any outlet on the circuit, the GFCI receptacle itself has failed internally or an active line-to-ground fault exists in the concealed wall wiring. Leave the breaker OFF and contact a licensed electrician.`
+      },
+      {
+        id: 'us-highway-signs',
+        title: 'Transportation Safety: US MUTCD Yellow Pennant-Shaped Sign Meaning',
+        category: 'Transportation Safety',
+        content: `Under the Federal Highway Administration (FHWA) Manual on Uniform Traffic Control Devices (MUTCD), highway signs utilize standardized shapes, colors, and placements.
+YELLOW PENNANT-SHAPED SIGN SPECIFICATIONS:
+- Sign Code: MUTCD W14-3.
+- Shape: An isosceles triangle / pennant shape with its longest axis pointing horizontally to the right.
+- Color Scheme: Yellow retroreflective background with black uppercase lettering and border.
+- EXACT MEANING: "NO PASSING ZONE".
+- UNIQUE ROADWAY PLACEMENT: It is the ONLY traffic sign in the United States designed specifically to be erected on the LEFT side of a two-lane, two-way roadway (facing approaching traffic), positioned at the exact beginning of a no-passing zone where sight distance is restricted by horizontal curves, vertical crests, or intersections.
+- Functional Rationale: Mounting on the left side ensures that drivers preparing to initiate a passing maneuver in the oncoming left lane will clearly see the warning even if large vehicles in front of them obstruct standard right-shoulder signage.`
+      },
+      {
+        id: 'battery-chemistry-cold',
+        title: 'Electrochemical Degradation: Lithium-Ion vs NiMH Performance Below 0°C',
+        category: 'Materials Science & Batteries',
+        content: `Low-temperature electrochemical dynamics below 0°C (32°F) differ fundamentally between Lithium-ion and Nickel-Metal Hydride (NiMH) battery chemistries.
+LITHIUM-ION SUB-ZERO BEHAVIOR & CHARGING PLATING HAZARD:
+- Charging Below 0°C: Catastrophic degradation mechanism. At freezing temperatures, the liquid electrolyte viscosity increases significantly, while the solid electrolyte interphase (SEI) diffusion resistance and charge-transfer resistance at the graphite anode rise exponentially. Lithium ions cannot intercalate into the graphite crystal lattice at normal rates. Excess lithium ions are instead electrochemically deposited onto the graphite surface as metallic lithium ("lithium plating").
+- Permanent Damage: Lithium plating causes irreversible capacity loss, increases internal cell resistance, and seeds sharp microscopic metallic lithium dendrites that can pierce the microporous polymer separator over subsequent cycles, causing internal micro-shorts and potential thermal runaway.
+- Discharging Below 0°C: Temporary voltage depression due to ohmic resistance; does not cause metallic dendrites, but capacity is temporarily reduced.
+NICKEL-METAL HYDRIDE (NiMH) BEHAVIOR:
+- NiMH cells utilize an aqueous potassium hydroxide (KOH) alkaline electrolyte which retains reasonable ionic conductivity at sub-zero temperatures down to -20°C.
+- While discharge internal resistance increases and high-rate output drops in cold weather, NiMH does NOT undergo metallic dendrite plating or separator piercing. Consequently, unheated NiMH packs degrade far less permanently in sub-0°C conditions than unheated Lithium-ion packs subjected to charging.`
+      },
+      {
+        id: 'tls-handshake-comparison',
+        title: 'Network Security Protocols: TLS 1.2 vs TLS 1.3 Handshake Differences',
+        category: 'Cybersecurity & Protocols',
+        content: `The Transport Layer Security (TLS) protocol underwent major structural evolution from TLS 1.2 (RFC 5246, 2008) to TLS 1.3 (RFC 8446, 2018).
+KEY HANDSHAKE DIFFERENCES FOR DEVELOPERS:
+1. Handshake Round Trips (Latency):
+   - TLS 1.2 requires a 2-RTT (two round-trip times) handshake before encrypted application data can be transmitted (ClientHello -> ServerHello/Cert -> ClientKeyExchange -> Finished).
+   - TLS 1.3 reduces the standard handshake to 1-RTT by including speculative Diffie-Hellman key shares directly within the initial ClientHello.
+   - For previously visited servers, TLS 1.3 supports 0-RTT resumption (Early Data), allowing application payload to be sent alongside the initial ClientHello.
+2. Mandatory Forward Secrecy & Deprecated Cryptography:
+   - TLS 1.2 permitted static RSA key exchange (where compromising the server's private key allows decrypting past recorded traffic) as well as vulnerable legacy ciphers (CBC mode, RC4, MD5, SHA-1).
+   - TLS 1.3 completely eliminates static RSA and static Diffie-Hellman key exchanges, strictly mandating Perfect Forward Secrecy (PFS) via ephemeral Diffie-Hellman (ECDHE or DHE). It removes all CBC and stream ciphers, exclusively permitting modern Authenticated Encryption with Associated Data (AEAD) ciphers (AES-GCM, ChaCha20-Poly1305, AES-CCM).
+3. Certificate Encryption & Privacy:
+   - In TLS 1.2, the server's digital certificate and identity were transmitted in plaintext during the handshake, visible to network eavesdroppers.
+   - In TLS 1.3, the server certificate and its extensions are encrypted immediately after the initial key exchange message, concealing the destination identity from middleboxes and network snoopers.`
       }
     ];
 
@@ -283,14 +437,12 @@ Key destinations and dining:
         'INSERT OR REPLACE INTO articles (id, title, category, content) VALUES (?, ?, ?, ?);',
         [doc.id, doc.title, doc.category, doc.content]
       );
-      try {
-        await this.db!.runAsync(
-          'INSERT INTO articles_fts (title, content) VALUES (?, ?);',
-          [doc.title, doc.content]
-        );
-      } catch (err) {
-        // FTS may already contain the entry
-      }
+    }
+
+    try {
+      await this.db!.execAsync("INSERT INTO articles_fts(articles_fts) VALUES('rebuild');");
+    } catch (err) {
+      console.warn('FTS rebuild warning:', err);
     }
   }
 }
