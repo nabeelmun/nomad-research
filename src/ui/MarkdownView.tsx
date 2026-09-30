@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 
 interface MarkdownViewProps {
   content: string;
@@ -13,6 +13,8 @@ export const MarkdownView: React.FC<MarkdownViewProps> = React.memo(({ content, 
   const renderedElements: React.ReactNode[] = [];
   let inCodeBlock = false;
   let codeBlockLines: string[] = [];
+  let inMathBlock = false;
+  let mathBlockLines: string[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -39,6 +41,47 @@ export const MarkdownView: React.FC<MarkdownViewProps> = React.memo(({ content, 
     }
 
     const trimmed = line.trim();
+
+    // Handle display math block delimiters like standalone [ or \[ or $$
+    if (trimmed === '\\[' || trimmed === '[' || trimmed === '$$') {
+      inMathBlock = true;
+      continue;
+    }
+
+    if (inMathBlock && (trimmed === '\\]' || trimmed === ']' || trimmed === '$$')) {
+      inMathBlock = false;
+      const formula = cleanLatexMath(mathBlockLines.join(' '));
+      if (formula.trim()) {
+        renderedElements.push(
+          <View key={`math-${i}`} style={styles.mathBlock}>
+            <Text style={styles.mathText}>{formula}</Text>
+          </View>
+        );
+      }
+      mathBlockLines = [];
+      continue;
+    }
+
+    if (inMathBlock) {
+      mathBlockLines.push(trimmed);
+      continue;
+    }
+
+    // Handle single-line math block e.g. "\[ formula \]" or "[ formula ]" containing math syntax
+    if (
+      /^\\\[.*\\\]$/.test(trimmed) ||
+      (/^\[.*\]$/.test(trimmed) && /\\(text|frac|approx|times|cdot|sqrt|pm|boxed)/.test(trimmed))
+    ) {
+      const formula = cleanLatexMath(trimmed);
+      if (formula.trim()) {
+        renderedElements.push(
+          <View key={`math-single-${i}`} style={styles.mathBlock}>
+            <Text style={styles.mathText}>{formula}</Text>
+          </View>
+        );
+      }
+      continue;
+    }
 
     // Empty line -> spacing
     if (!trimmed) {
@@ -155,6 +198,18 @@ export const MarkdownView: React.FC<MarkdownViewProps> = React.memo(({ content, 
     );
   }
 
+  // Handle trailing unclosed math block (e.g. while actively streaming)
+  if (inMathBlock && mathBlockLines.length > 0) {
+    const formula = cleanLatexMath(mathBlockLines.join(' '));
+    if (formula.trim()) {
+      renderedElements.push(
+        <View key="math-unclosed" style={styles.mathBlock}>
+          <Text style={styles.mathText}>{formula}</Text>
+        </View>
+      );
+    }
+  }
+
   return <View style={styles.container}>{renderedElements}</View>;
 });
 
@@ -216,9 +271,51 @@ function renderInlineFormatting(
   });
 }
 
+export function cleanLatexMath(str: string): string {
+  let cleaned = str;
+  // Strip outer delimiters \[ ... \] or \( ... \)
+  cleaned = cleaned.replace(/^\\\[\s*/, '').replace(/\s*\\\]$/, '');
+  cleaned = cleaned.replace(/^\\\(\s*/, '').replace(/\s*\\\)$/, '');
+  // Strip any inline \( or \) or $$ delimiters, as well as stray \[ and \]
+  cleaned = cleaned.replace(/\\([()])/g, '').replace(/\$\$/g, '').replace(/\\\[/g, '').replace(/\\\]/g, '');
+
+  // Strip standalone brackets around math formulas e.g. "[ \text{...} ]"
+  if (cleaned.startsWith('[') && cleaned.endsWith(']') && /\\(text|frac|approx|times|cdot|boxed)/.test(cleaned)) {
+    cleaned = cleaned.slice(1, -1).trim();
+  }
+
+  // 1. Repeatedly unpack \text{...}, \mathrm{...}, \mathbf{...}, \textbf{...}, \mathit{...}
+  while (/\\(text|mathrm|mathbf|textbf|mathit)\{([^{}]+)\}/.test(cleaned)) {
+    cleaned = cleaned.replace(/\\(text|mathrm|mathbf|textbf|mathit)\{([^{}]+)\}/g, '$2');
+  }
+
+  // 2. Repeatedly unpack \boxed{...}
+  while (/\\boxed\{([^{}]+)\}/.test(cleaned)) {
+    cleaned = cleaned.replace(/\\boxed\{([^{}]+)\}/g, '$1');
+  }
+
+  // 3. Repeatedly convert \frac{a}{b} -> (a / b)
+  while (/\\frac\{([^{}]+)\}\{([^{}]+)\}/.test(cleaned)) {
+    cleaned = cleaned.replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, '($1 / $2)');
+  }
+
+  return cleaned
+    .replace(/\\approx/g, '≈')
+    .replace(/\\times/g, '×')
+    .replace(/\\cdot/g, '·')
+    .replace(/\\leq?/g, '≤')
+    .replace(/\\geq?/g, '≥')
+    .replace(/\\neq?/g, '≠')
+    .replace(/\\pm/g, '±')
+    .replace(/\\sqrt\{([^{}]+)\}/g, '√($1)')
+    .replace(/\\circ/g, '°')
+    .replace(/\\\$/g, '$');
+}
+
 function cleanEscapes(str: string): string {
+  const withoutLatex = cleanLatexMath(str);
   // Strip model backslash escapes: \. \* \_ \# \[ \] \( \) \-
-  return str.replace(/\\([.\*\_#\[\]\(\)\-\`])/g, '$1');
+  return withoutLatex.replace(/\\([.\*\_#\[\]\(\)\-\`])/g, '$1');
 }
 
 const styles = StyleSheet.create({
@@ -354,5 +451,21 @@ const styles = StyleSheet.create({
   },
   lineSpacer: {
     height: 6
+  },
+  mathBlock: {
+    backgroundColor: '#141417',
+    borderLeftWidth: 3,
+    borderLeftColor: '#38BDF8',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    marginVertical: 6
+  },
+  mathText: {
+    color: '#38BDF8',
+    fontSize: 14,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontWeight: '600',
+    lineHeight: 20
   }
 });
