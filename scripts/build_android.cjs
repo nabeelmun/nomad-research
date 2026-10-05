@@ -3,7 +3,7 @@ const path = require('node:path');
 const windows = process.platform === 'win32';
 const result = spawnSync(
   windows ? 'gradlew.bat' : './gradlew',
-  ['assembleRelease', '--no-daemon'],
+  ['assembleRelease', '--no-daemon', '-PreactNativeArchitectures=arm64-v8a,x86_64'],
   {
     cwd: path.resolve(__dirname, '../android'),
     stdio: 'inherit',

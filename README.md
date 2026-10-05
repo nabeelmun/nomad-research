@@ -65,7 +65,7 @@ Older extraction, upload and desktop benchmark scripts are retained as historica
 
 ## Releases and validation
 
-Checks run typechecking, behavioral tests, Python corpus fixtures, dependency review and Android bundling. The manual Android workflow builds a diagnostic APK. Version-tag builds require the project's persistent signing secrets and publish one version/commit-named APK with SHA256SUMS, build.json and signing verification. Existing releases are never overwritten. iOS is an optional unsigned diagnostic workflow, not a tested supported release.
+Checks run typechecking, behavioral tests, Python corpus fixtures, dependency review and Android bundling. The manual Android workflow builds a diagnostic APK for ARM64 phones and x86-64 emulators, matching the available llama native libraries. 32-bit devices are unsupported. Version-tag builds require the project's persistent signing secrets and publish one version/commit-named APK with SHA256SUMS, build.json and signing verification. Existing releases are never overwritten. iOS is an optional unsigned diagnostic workflow, not a tested supported release.
 
 Follow [DEVICE_TESTING.md](docs/DEVICE_TESTING.md) for phone checks, 24 benchmark cases, offline traffic checks and release signing. See [IMPLEMENTATION.md](docs/IMPLEMENTATION.md) for implementation status and local verification evidence.
 
