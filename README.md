@@ -2,7 +2,7 @@
 
 Offline Android research with local Wikipedia/Wikivoyage sources and a deterministic practical calculator. This project targets the [POIDH research bounty](https://poidh.xyz/mainnet/bounty/31).
 
-The v1.2.0 source update includes the changes described below. A signed v1.2.0 release and phone benchmarks have not yet been produced. Existing v1.1.0 APKs do not contain these changes.
+The v1.2.0 source update includes the changes described below. Native Android APK and unsigned iOS IPA test builds passed and are available in [TEST_BUILDS.md](docs/TEST_BUILDS.md), with downloads, checksums and installation notes. A production release and phone benchmarks remain pending. Existing v1.1.0 APKs do not contain these changes.
 
 ## What works in this implementation
 

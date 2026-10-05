@@ -1,6 +1,6 @@
 # Implementation status - 6 October 2026
 
-Local checkout: C:/Users/Acer/nomad-research. Baseline commit: d39ddb5d35c565b3776aa0d461ea0bb3ae94b917. This report records the implemented source changes and local validation. Native test artifacts are generated separately by the GitHub Actions workflows; successful builds and hardware validation must be confirmed before release. The old v1.1.0 binary remains unchanged.
+Local checkout: C:/Users/Acer/nomad-research. Baseline commit: d39ddb5d35c565b3776aa0d461ea0bb3ae94b917. This report records the implemented source changes and local validation. The implementation is pushed to main. Both GitHub Actions native test builds passed; download links, build commits, hashes and signing details are recorded in TEST_BUILDS.md. Physical-device validation remains pending. The old v1.1.0 binary remains unchanged.
 
 ## Findings addressed
 
@@ -45,9 +45,9 @@ The full builder produced release/corpora/corpus-manifest.json, voyage.search.db
 
 ## Remaining validation and release requirements
 
-The local native APK attempt compiled 28 initial Gradle/plugin tasks, then stopped with **SDK location not found**. No Android SDK/adb is configured on this machine. The app's native compilation and installation have not passed, and no APK has been produced. The checked-in Android workflow sets up Java 17 and Android tooling for that build.
+The local native APK attempt stopped because this Windows machine has no configured Android SDK. GitHub Actions subsequently compiled and packaged both the Android APK and unsigned iOS IPA successfully. All CI checks passed. Local verification confirmed both archive contents and checksums, ARM64/iOS bundle identity and the APK signature, actual manifest and supported native architectures. The Android SDK action now requests current packages explicitly, and builds exclude unsupported 32-bit targets. Installation and runtime behavior have not been tested on a phone.
 
-A persistent existing release signing key is required for upgrade-safe publication. No key was created, no release/tag was pushed, and no external messages were sent. Existing history is preserved by the migration code, but upgrade installation and file-picker behavior need checking on hardware.
+The diagnostic APK uses the template debug key, whose certificate matches the published NomadLM-v1.1.0.apk, and has a higher version code. A normal update should be accepted for that signing identity; actual upgrade installation, history migration and file-picker behavior still need checking on hardware. Production publication requires the project's persistent signing key. No production release/tag was created or old release overwritten. The IPA is unsigned and requires re-signing for iPhone installation.
 
 Phone measurements are still required for startup, generation, memory, thermals, battery, offline traffic, downloads/resume, accessibility, model compatibility and model choice. GrapheneOS requires a separate supported Pixel. The Nothing Phone (3a) Pro / 8 GB cannot establish that platform claim. Follow DEVICE_TESTING.md and the 24 benchmark cases; no speed or memory numbers have been invented.
 
