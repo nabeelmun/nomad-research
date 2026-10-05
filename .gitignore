@@ -8,3 +8,11 @@ models/*.gguf
 .DS_Store
 *.log
 release/
+
+__pycache__/
+.venv/
+*.jks
+*.keystore
+*.apk
+*.ipa
+signing-verification.txt

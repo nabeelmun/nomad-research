@@ -1,196 +1,128 @@
-import * as FileSystem from 'expo-file-system';
-import { Platform } from 'react-native';
 import { initLlama, LlamaContext } from 'llama.rn';
-
+import { assetManager } from '../assets/AssetManager';
+import { MODELS } from '../assets/manifest';
+import { PromptMessage, fitPrompt } from './PromptBudget';
 export interface GenerationMetrics {
-  timeToFirstTokenMs: number;
+  timeToFirstTokenMs: number | null;
   totalTokens: number;
   tokensPerSecond: number;
   durationMs: number;
+  promptTokens?: number;
+  retrievalMs?: number;
+  truncated?: boolean;
 }
-
-export interface ModelConfig {
-  filename: string;
-  path: string;
-  contextSize: number;
-  threads: number;
-  gpuLayers: number;
-}
-
 export class LlamaEngine {
   private context: LlamaContext | null = null;
-  private currentConfig: ModelConfig | null = null;
-  private isGenerating: boolean = false;
-
-  /**
-   * Automatically discovers and initializes an available GGUF model.
-   * Checks app internal storage, iOS Files directory, and external Download directory.
-   */
-  async autoInitialize(): Promise<boolean> {
-    if (this.context) return true;
-
-    const candidatePaths = [
-      `${FileSystem.documentDirectory}models/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf`,
-      `${FileSystem.documentDirectory}Qwen2.5-1.5B-Instruct-Q4_K_M.gguf`,
-      'file:///sdcard/Download/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf',
-      `${FileSystem.documentDirectory}models/Llama-3.2-3B-Instruct-Q4_K_M.gguf`,
-      `${FileSystem.documentDirectory}Llama-3.2-3B-Instruct-Q4_K_M.gguf`,
-      'file:///sdcard/Download/Llama-3.2-3B-Instruct-Q4_K_M.gguf'
-    ];
-
-    for (const p of candidatePaths) {
-      try {
-        const info = await FileSystem.getInfoAsync(p);
-        if (info.exists) {
-          console.log(`Found model at: ${p}`);
-          return await this.loadModel(p);
-        }
-      } catch (err) {
-        // continue search
-      }
-    }
-
-    return false;
-  }
-
-  /**
-   * Initializes or reloads a GGUF model via llama.rn NDK bindings.
-   * Defaulted to 4 threads for optimal performance on ARM Cortex-A715/A78 cores.
-   */
-  async loadModel(
-    modelPath: string,
-    contextSize: number = 2048,
-    threads: number = 4
-  ): Promise<boolean> {
-    try {
-      if (this.context) {
-        await this.context.release();
-        this.context = null;
-      }
-
-      const fileInfo = await FileSystem.getInfoAsync(modelPath);
-      if (!fileInfo.exists) {
-        throw new Error(`Model file not found at: ${modelPath}`);
-      }
-
-      this.context = await initLlama({
-        model: modelPath,
-        use_mlock: false,
-        n_ctx: contextSize,
-        n_threads: threads,
-        n_gpu_layers: Platform.OS === 'ios' ? 99 : 0 // Metal GPU acceleration on iOS, CPU on Android
+  private initializing: Promise<boolean> | null = null;
+  private generating = false;
+  private modelId = '';
+  autoInitialize(): Promise<boolean> {
+    if (this.context) return Promise.resolve(true);
+    if (!this.initializing)
+      this.initializing = this.open().catch((error) => {
+        this.initializing = null;
+        throw error;
       });
-
-      this.currentConfig = {
-        filename: modelPath.split('/').pop() || 'model.gguf',
-        path: modelPath,
-        contextSize,
-        threads,
-        gpuLayers: 0
-      };
-
-      return true;
-    } catch (error) {
-      console.error('Failed to initialize Llama model:', error);
-      throw error;
-    }
+    return this.initializing;
   }
-
-  /**
-   * Generates a streaming research completion with real-time token telemetry.
-   */
-  async generateCompletion(
-    prompt: string,
-    onToken: (token: string) => void,
-    onMetrics?: (metrics: GenerationMetrics) => void,
-    options?: {
-      maxTokens?: number;
-      temperature?: number;
-      topP?: number;
-    }
-  ): Promise<string> {
-    if (!this.context) {
-      throw new Error('Llama model is not loaded. Please load a model first.');
-    }
-
-    if (this.isGenerating) {
-      throw new Error('Generation already in progress.');
-    }
-
-    this.isGenerating = true;
-    let fullText = '';
-    let tokenCount = 0;
-    const startTime = Date.now();
-    let firstTokenTime: number | null = null;
-
+  private async open(): Promise<boolean> {
+    const settings = await assetManager.settings();
+    const model = MODELS.find((m) => m.id === settings.modelId)!;
+    await assetManager.validate(model);
+    this.context = await initLlama({
+      model: assetManager.path(model),
+      use_mmap: true,
+      use_mlock: false,
+      n_ctx: 4096,
+      n_threads: 4,
+      n_gpu_layers: 0,
+    });
+    this.modelId = model.id;
+    return true;
+  }
+  async generate(
+    system: string,
+    query: string,
+    history: PromptMessage[],
+    sources: string[],
+    onToken: (text: string) => void,
+    maxTokens: number,
+    signal: AbortSignal,
+  ): Promise<{ answer: string; metrics: GenerationMetrics; sourceCount: number }> {
+    if (!this.context) throw new Error('The model is not ready. Retry loading it in Settings.');
+    if (this.generating) throw new Error('Wait for the current answer to finish.');
+    this.generating = true;
+    const context = this.context;
+    const start = Date.now();
+    let first: number | null = null;
+    let streamed = '';
+    const check = () => {
+      if (signal.aborted) throw new Error('Answer stopped.');
+    };
     try {
-      await this.context.completion(
-        {
-          prompt,
-          n_predict: options?.maxTokens ?? 512,
-          temperature: options?.temperature ?? 0.5,
-          top_p: options?.topP ?? 0.9,
-          penalty_repeat: 1.18,
-          penalty_last_n: 128,
-          penalty_present: 0.3,
-          penalty_freq: 0.3,
-          stop: [
-            '<|im_end|>',
-            '<|endoftext|>',
-            '<|im_start|>',
-            '<|im_start|>user',
-            '<|im_start|>assistant',
-            '\nUser:',
-            '\n### User:',
-            '### User:',
-            'User:'
-          ]
+      check();
+      const fitted = await fitPrompt(
+        system,
+        query,
+        history,
+        sources,
+        async (messages) => {
+          check();
+          const formatted = await context.getFormattedChat(messages, null, {
+            jinja: true,
+            enable_thinking: false,
+          });
+          return (await context.tokenize(formatted.prompt)).tokens.length;
         },
-        (data) => {
-          if (!firstTokenTime) {
-            firstTokenTime = Date.now();
-          }
-
-          tokenCount++;
-          fullText += data.token;
-          onToken(data.token);
-        }
+        4096,
+        maxTokens,
       );
-
-      const endTime = Date.now();
-      const durationMs = endTime - startTime;
-      const ttfTokenMs = firstTokenTime ? firstTokenTime - startTime : durationMs;
-      const tokPerSec = durationMs > 0 ? (tokenCount / (durationMs / 1000)) : 0;
-
-      if (onMetrics) {
-        onMetrics({
-          timeToFirstTokenMs: ttfTokenMs,
-          totalTokens: tokenCount,
-          tokensPerSecond: parseFloat(tokPerSec.toFixed(1)),
-          durationMs
-        });
-      }
-
-      return fullText;
+      check();
+      const result = await context.completion(
+        {
+          messages: fitted.messages,
+          jinja: true,
+          enable_thinking: false,
+          n_predict: maxTokens,
+          temperature: MODELS.find((m) => m.id === this.modelId)?.temperature ?? 0.2,
+          top_p: 0.9,
+          penalty_repeat: 1.1,
+        },
+        (chunk) => {
+          if (signal.aborted) return;
+          if (first === null) first = Date.now();
+          streamed += chunk.token;
+          onToken(chunk.token);
+        },
+      );
+      return {
+        answer: result.content || result.text || streamed,
+        sourceCount: fitted.sources.length,
+        metrics: {
+          timeToFirstTokenMs: first === null ? null : first - start,
+          totalTokens: result.tokens_predicted,
+          tokensPerSecond: result.timings?.predicted_per_second || 0,
+          durationMs: Date.now() - start,
+          promptTokens: result.tokens_evaluated,
+          truncated: result.truncated || result.context_full || !!result.stopped_limit,
+        },
+      };
     } finally {
-      this.isGenerating = false;
+      this.generating = false;
     }
   }
-
   async stopGeneration(): Promise<void> {
-    if (this.context && this.isGenerating) {
-      await this.context.stopCompletion();
-      this.isGenerating = false;
-    }
+    if (this.context && this.generating) await this.context.stopCompletion();
   }
-
+  async release(): Promise<void> {
+    if (this.generating) throw new Error('Stop the current answer before changing assets.');
+    if (this.initializing) await this.initializing.catch(() => {});
+    if (this.context) await this.context.release();
+    this.context = null;
+    this.initializing = null;
+  }
   isLoaded(): boolean {
     return this.context !== null;
   }
-
-  getConfig(): ModelConfig | null {
-    return this.currentConfig;
-  }
 }
-
 export const llamaEngine = new LlamaEngine();

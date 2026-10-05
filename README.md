@@ -1,84 +1,72 @@
-# NomadLM ⛺
-### Offline AI Research Engine for Android
+# NomadLM
 
-> An offline-first, native Android research intelligence engine designed to meet and exceed the bar for mobile research: a powerful assistant that runs completely disconnected from the internet, operates comfortably within standard mobile RAM budgets (8GB–12GB devices), and delivers real-time inference grounded in verified encyclopedic citations and worldwide places.
+Offline Android research with local Wikipedia/Wikivoyage sources and a deterministic practical calculator. This project targets the [POIDH research bounty](https://poidh.xyz/mainnet/bounty/31).
 
-[![Download Release APK](https://img.shields.io/badge/Download-NomadLM--v1.1.0.apk-success?style=for-the-badge&logo=android)](https://github.com/nabeelmun/nomad-research/releases/download/v1.1.0/NomadLM-v1.1.0.apk)
-[![Download iOS IPA](https://img.shields.io/badge/Download-NomadLM--v1.1.0.ipa-9cf?style=for-the-badge&logo=apple)](https://github.com/nabeelmun/nomad-research/releases/download/v1.1.0/NomadLM-v1.1.0.ipa)
-[![GitHub Release](https://img.shields.io/badge/Release-v1.1.0-blue?style=for-the-badge&logo=github)](https://github.com/nabeelmun/nomad-research/releases/tag/v1.1.0)
+The v1.2.0 source update includes the changes described below. A signed v1.2.0 release and phone benchmarks have not yet been produced. Existing v1.1.0 APKs do not contain these changes.
 
----
+## What works in this implementation
 
-## 📌 Project Status & Verified Data Footprint
+- In-app model/corpus downloads with pinned sizes and SHA-256 hashes, staging files, pause/resume and explicit repair. Android resumes partial downloads after process death against immutable model URLs; ignored Range responses are safely restarted by Expo's downloader.
+- File-picker imports work with scoped storage. Import original files or trusted prebuilt .search.db packs with corpus-manifest.json. Private assets are replaced only after validation; a previous version is retained until the replacement succeeds.
+- Search opens the downloaded corpus indexes. It no longer answers from the old 21 hand-written seed articles. Initial raw downloads are converted to bounded, section-aware FTS5 passage databases; prepared packs skip that conversion.
+- Fixed arithmetic, percentages, discounts, currencies, balances and unit conversion use decimal.js without model generation. Ambiguous wording asks for an explicit expression. The result card shows exactly what was computed.
+- Model-native chat templates, actual token-budget checks, a 4096-token context, short/standard/detailed output limits, guarded cancellation and native completion metrics.
+- Dark green UI, safe-area layout, selectable answers, multiline input, virtualized chat, buffered streaming, offline source sheets, tables/code copy, history search/rename and edit/regenerate of the latest question.
 
-* **Online-Once Setup → 100% Offline Research:** The app includes a modern First-Launch Setup Wizard that downloads the GGUF model and SQLite databases directly on-device over Wi-Fi with live progress tracking (no PC or USB cable required). Once installed, the app operates 100% in Airplane Mode with zero network calls.
-* **High-Speed Neural Reasoning Core:**
-  * Powered by `Qwen2.5-1.5B-Instruct` (`Q4_K_M`, ~940 MB) — delivering blazing inference speed (~15–25 tokens/sec) with zero RAM pressure on devices with 4GB–12GB RAM.
-* **Offline Encyclopedic Knowledge Store:**
-  * **`voyage.db` (313.6 MB):** Complete Wikivoyage global collection covering **34,004 travel articles** and **549,160 searchable places** (cities, sights, restaurants, and hotels worldwide).
-  * **`wiki_core.db` (213.6 MB):** Curated Wikipedia Core knowledge base indexed with top global history, science, geography, and computer science / cryptography benchmark literature.
-* **Total Phone Footprint:** **~1.47 GB** total download, installing in under 2 minutes over standard Wi-Fi and leaving virtually zero strain on device storage.
-* **3 Dynamic Response Modes:**
-  * **⚡ Instant (Short & Fast):** Direct, punchy answers with compact bullet points, capped at 256 tokens for near-instant 3-second responses.
-  * **⚖️ Balanced (Standard Depth):** Proportioned explanation with structured procedural steps and grounded citations (512 tokens).
-  * **📚 Deep (Detailed Analysis):** Comprehensive, multi-dimensional treatises exploring theoretical underpinnings, nuances, and complete context (1,280 tokens).
-* **Dual Setup Modes Supported:**
-  1. **1-Tap In-App Download:** Streamlined 3-step installer on first launch with live percentage and MB progress indicators.
-  2. **Zero-Network USB Sideload:** Users can also transfer models and databases directly to `/sdcard/Download/` via USB cable to bypass network usage entirely.
-* **Refined Terminal UX & Conversational Engine:**
-  * **Multi-Turn Conversational Memory:** Maintains ongoing discussion context across follow-up questions completely offline with automatic rolling context window management.
-  * **Rich Native Markdown Rendering:** Full visual rendering for Markdown headings (`##`, `###`), bold typography (`**bold**`), italics (`*italic*`), monospace inline code, fenced code blocks, blockquotes, bullet/numbered lists, and interactive bracketed citations.
-  * **Persistent Offline Chat History:** Past research sessions and multi-turn threads are indexed in a local SQLite store (`🕒 History`), allowing instant session review and restoration anytime.
-  * **Interactive Generation Control:** Real-time `■ STOP` button to halt inference midway at any point.
-  * **Smart Scroll Control:** Automatically pauses token auto-scrolling when reading earlier paragraphs, with an interactive floating pill to resume to bottom on demand.
-  * **Keyboard-Aware Input:** Native `KeyboardAvoidingView` keeps the search and terminal input box visible and elevated above the software keyboard.
+A source reference establishes attribution, not independent fact verification. Offline sources may be old or incomplete, and the language model can still misread evidence. Unsupported research returns a clear lack-of-evidence response. No cloud inference or account is required.
 
+## Models
 
----
+| Model / Q4_K_M | Download | Status |
+|---|---:|---|
+| Qwen2.5-1.5B-Instruct | 986,048,768 bytes | Default baseline |
+| Liquid LFM2.5-1.2B-Instruct | 730,895,168 bytes | Experimental phone candidate; separate Liquid license |
+| Qwen3.5-2B | 1,280,835,840 bytes | Experimental phone candidate |
 
-## 🛠 Architecture & Pipeline
+Model selection is in Setup; Settings returns there to change models. Qwen 2.5 is kept as the baseline, not declared the best. See [device testing](docs/DEVICE_TESTING.md) for a fair comparison on the Nothing Phone (3a) Pro / 8 GB. No tokens/second, RAM, battery or GrapheneOS performance claim is made before hardware testing.
 
-```mermaid
-graph TD
-    A[User Research Query] --> B{Query Classification}
-    B -->|Travel / Places / Sights| C[voyage.db FTS5 Search]
-    B -->|Science / History / General| D[wiki_core.db FTS5 Search]
-    C --> E[Context & Citation Assembler]
-    D --> E
-    E --> F[LlamaEngine Local 4-Thread Inference]
-    F --> G[Streaming Response with Interactive Citations]
+## Knowledge and storage
+
+Raw downloads are pinned to the existing v1.1.0 corpus assets: voyage.db (328,810,496 bytes) and wiki_core.db (223,997,952 bytes). The actual selection contains **34,004 travel articles** and **2,570 Wikipedia articles**. Passages are text windows, not unique places. New indexes display their actual article and passage counts in Settings.
+
+The default raw model + corpus download totals 1,538,857,216 bytes (about 1.43 GiB). Private installed storage also includes the derived search indexes, history and any additional models. Setup conservatively requests roughly 5 GB of free space for initial staging/indexing; prepared-pack imports and repairs calculate remaining space separately. Setup time depends on download speed and device indexing performance.
+
+Research uses local data. Network access is limited to explicit setup downloads from GitHub/Hugging Face. Source sheets show stored excerpts without opening a website. City context is entered manually; location and broad storage permissions are removed, and Android app-data backup is disabled.
+
+## Development
+
+Use Node 22.15+, Python 3.11+, Java 17 and an Android SDK. Expo SDK 57 / React Native 0.86.3 / llama.rn 0.12.9 are aligned in the lockfile. Expo Go cannot run the native model.
+
+```sh
+npm ci --ignore-scripts
+node node_modules/llama.rn/install/download-native-artifacts.js
+python -m venv .venv
+# Activate .venv using your shell, then:
+python -m pip install -r requirements.txt
+npm run check
+npm run audit:review
+npm run build:apk
 ```
 
-### Reproducible Data Pipeline
-The repository includes the complete open-source pipeline scripts used to build and verify the corpus:
-* [`scripts/inspect_voyage.py`](scripts/inspect_voyage.py): Downloads and indexes the 328 MB global Wikivoyage database.
-* [`scripts/download_wiki.py`](scripts/download_wiki.py): Resumable downloader for the full 21.3 GB FineWiki SQLite dump.
-* [`scripts/extract_compact_wiki.py`](scripts/extract_compact_wiki.py) & [`scripts/finish_compact_wiki.py`](scripts/finish_compact_wiki.py): High-speed extraction filtering the top 120,000 articles by pageviews into `wiki_core.db` (4.62 GB).
-* [`scripts/test_wiki_core.py`](scripts/test_wiki_core.py): Tests zstd block decompression and excerpt retrieval on device-ready SQLite databases.
+The native-artifact installer verifies downloaded artifact hashes. npm's upstream audit currently reports two reviewed build-tool advisories without published fixes; see [the dated exceptions](docs/audit-exceptions.json). New advisories fail the review check. Do not use npm audit fix --force to downgrade Expo.
 
----
+## Build searchable packs on a computer
 
-## 📱 Hardware & Operating Profile
+```sh
+python scripts/fetch_corpora.py
+python scripts/build_corpus.py release/raw/voyage.db --corpus voyage
+python scripts/build_corpus.py release/raw/wiki_core.db --corpus wiki
+node --require ./tests/register.cjs scripts/validate_packs.cjs
+```
 
-* **Target Hardware:** Android 10+ / GrapheneOS devices with 64-bit ARM (`arm64-v8a`) and 8GB+ RAM.
-* **Memory Headroom:** Active model runtime + retrieval uses ~2.5 GB RAM, safely below Android's Low Memory Killer threshold on 8GB phones.
-* **Storage Requirement:** ~7.0 GB to 7.5 GB total on internal storage.
+Outputs are in release/corpora/: voyage.search.db, wiki_core.search.db and corpus-manifest.json. Copy those plus your selected GGUF to the phone, choose Import files, then Finish setup with imported files. Import the manifest with its packs; the app orders the manifest first. Pack SHA/size/schema/origin metadata are checked. A user-supplied manifest is not a signature; use trusted packs. Existing raw assets remain downloadable for first-run setup.
 
----
+Older extraction, upload and desktop benchmark scripts are retained as historical utilities. They are not the active app pipeline and their printed counts/prompt templates are not evidence for this version.
 
-## 🧪 Benchmark Capabilities
+## Releases and validation
 
-1. **Travel & Specific Place Lookup (Vitalik Test Case):**
-   * Query: *"Best vegan restaurants and sights in Lisbon"*
-   * Source: `voyage.db` (Lisbon listings, vegan food markers, opening guidelines).
-2. **Technical & Scientific Synthesis:**
-   * Query: *"Compare STARKs and SNARKs across trusted setups and quantum resistance"*
-   * Source: `wiki_core.db` (Zero-knowledge proof literature, FRI protocol, pairing-friendly curves).
-3. **Historical & Economic Analysis:**
-   * Query: *"How did the 1973 oil embargo restructure Japanese industrial policy?"*
-   * Source: `wiki_core.db` (1973 oil crisis, MITI industrial restructuring).
+Checks run typechecking, behavioral tests, Python corpus fixtures, dependency review and Android bundling. The manual Android workflow builds a diagnostic APK. Version-tag builds require the project's persistent signing secrets and publish one version/commit-named APK with SHA256SUMS, build.json and signing verification. Existing releases are never overwritten. iOS is an optional unsigned diagnostic workflow, not a tested supported release.
 
----
+Follow [DEVICE_TESTING.md](docs/DEVICE_TESTING.md) for phone checks, 24 benchmark cases, offline traffic checks and release signing. See [IMPLEMENTATION.md](docs/IMPLEMENTATION.md) for implementation status and local verification evidence.
 
-## 📄 License
-MIT License. Open-source research tool for the POIDH ecosystem.
+Application source: [MIT](LICENSE). Models and corpus text retain [their own licenses and attribution](THIRD_PARTY_NOTICES.md).

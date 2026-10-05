@@ -1,225 +1,179 @@
-import React from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
-
-interface MarkdownViewProps {
-  content: string;
-  onCitationPress?: (citationId: number) => void;
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+import { colors } from './theme';
+function CodeBlock({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <View style={styles.code}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Copy code"
+        style={styles.copy}
+        onPress={() =>
+          void Clipboard.setStringAsync(code)
+            .then(() => setCopied(true))
+            .catch(() => setCopied(false))
+        }
+      >
+        <Text style={styles.link}>{copied ? 'Copied' : 'Copy code'}</Text>
+      </Pressable>
+      <ScrollView horizontal>
+        <Text selectable style={styles.mono}>
+          {code}
+        </Text>
+      </ScrollView>
+    </View>
+  );
 }
-
-export const MarkdownView: React.FC<MarkdownViewProps> = React.memo(({ content, onCitationPress }) => {
-  if (!content) return null;
-
-  const lines = content.split('\n');
-  const renderedElements: React.ReactNode[] = [];
-  let inCodeBlock = false;
-  let codeBlockLines: string[] = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
-    // Handle code blocks ```
-    if (line.trim().startsWith('```')) {
-      if (inCodeBlock) {
-        renderedElements.push(
-          <View key={`code-${i}`} style={styles.codeBlock}>
-            <Text style={styles.codeText}>{codeBlockLines.join('\n')}</Text>
-          </View>
-        );
-        codeBlockLines = [];
-        inCodeBlock = false;
-      } else {
-        inCodeBlock = true;
-      }
-      continue;
-    }
-
-    if (inCodeBlock) {
-      codeBlockLines.push(line);
-      continue;
-    }
-
-    const trimmed = line.trim();
-
-    // Ignore standalone display math delimiter lines (\[, \], $$, \(, \))
-    if (/^(\\\[|\\\]|\$\$|\\\(|\\\)|\[|\])$/.test(trimmed)) {
-      continue;
-    }
-
-    // Empty line -> spacing
-    if (!trimmed) {
-      renderedElements.push(<View key={`spacer-${i}`} style={styles.lineSpacer} />);
-      continue;
-    }
-
-    // Horizontal Divider Rule (---, ***, ___)
-    if (/^(\-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
-      renderedElements.push(<View key={`hr-${i}`} style={styles.horizontalRule} />);
-      continue;
-    }
-
-    // Headings (H1 to H5)
-    if (trimmed.startsWith('##### ')) {
-      renderedElements.push(
-        <Text key={`h5-${i}`} style={styles.h5}>
-          {renderInlineFormatting(trimmed.substring(6), onCitationPress)}
-        </Text>
-      );
-      continue;
-    }
-
-    if (trimmed.startsWith('#### ')) {
-      renderedElements.push(
-        <Text key={`h4-${i}`} style={styles.h4}>
-          {renderInlineFormatting(trimmed.substring(5), onCitationPress)}
-        </Text>
-      );
-      continue;
-    }
-
-    if (trimmed.startsWith('### ')) {
-      renderedElements.push(
-        <Text key={`h3-${i}`} style={styles.h3}>
-          {renderInlineFormatting(trimmed.substring(4), onCitationPress)}
-        </Text>
-      );
-      continue;
-    }
-
-    if (trimmed.startsWith('## ')) {
-      renderedElements.push(
-        <Text key={`h2-${i}`} style={styles.h2}>
-          {renderInlineFormatting(trimmed.substring(3), onCitationPress)}
-        </Text>
-      );
-      continue;
-    }
-
-    if (trimmed.startsWith('# ')) {
-      renderedElements.push(
-        <Text key={`h1-${i}`} style={styles.h1}>
-          {renderInlineFormatting(trimmed.substring(2), onCitationPress)}
-        </Text>
-      );
-      continue;
-    }
-
-    // Blockquotes >
-    if (trimmed.startsWith('> ')) {
-      renderedElements.push(
-        <View key={`quote-${i}`} style={styles.blockquote}>
-          <Text style={styles.blockquoteText}>
-            {renderInlineFormatting(trimmed.substring(2), onCitationPress)}
-          </Text>
-        </View>
-      );
-      continue;
-    }
-
-    // Bullet lists - or *
-    if (/^[\*\-]\s+/.test(trimmed)) {
-      const itemText = trimmed.replace(/^[\*\-]\s+/, '');
-      renderedElements.push(
-        <View key={`bullet-${i}`} style={styles.listRow}>
-          <Text style={styles.bulletSymbol}>•</Text>
-          <Text style={styles.listText}>
-            {renderInlineFormatting(itemText, onCitationPress)}
-          </Text>
-        </View>
-      );
-      continue;
-    }
-
-    // Numbered lists: supports standard "1." as well as model-escaped "1\." or "1)"
-    const numMatch = trimmed.match(/^(\d+)(?:\.|\\[.|\)])\s+(.*)$/);
-    if (numMatch) {
-      renderedElements.push(
-        <View key={`num-${i}`} style={styles.listRow}>
-          <Text style={styles.numSymbol}>{numMatch[1]}.</Text>
-          <Text style={styles.listText}>
-            {renderInlineFormatting(numMatch[2], onCitationPress)}
-          </Text>
-        </View>
-      );
-      continue;
-    }
-
-    // Normal paragraph
-    renderedElements.push(
-      <Text key={`p-${i}`} style={styles.paragraph}>
-        {renderInlineFormatting(trimmed, onCitationPress)}
+function inline(text: string, onCitationPress?: (id: number) => void): React.ReactNode[] {
+  const pattern = /(\*\*[^*]+\*\*|\*[^*\n]+\*|`[^`]+`|\[\d+\])/g;
+  return text.split(pattern).map((part, i) =>
+    part.startsWith('**') && part.endsWith('**') ? (
+      <Text key={i} style={{ fontWeight: '700' }}>
+        {part.slice(2, -2)}
       </Text>
-    );
-  }
-
-  // Handle trailing unclosed code block (e.g. while actively streaming)
-  if (inCodeBlock && codeBlockLines.length > 0) {
-    renderedElements.push(
-      <View key="code-unclosed" style={styles.codeBlock}>
-        <Text style={styles.codeText}>{codeBlockLines.join('\n')}</Text>
-      </View>
-    );
-  }
-
-  return <View style={styles.container}>{renderedElements}</View>;
-});
-
-/**
- * Parses inline tokens: **bold**, *italic*, `code`, and [1] citations.
- * Also cleans up unneeded backslash escaping (like \. or \-).
- */
-function renderInlineFormatting(
-  text: string,
-  onCitationPress?: (citationId: number) => void
-): React.ReactNode[] {
-  const regex = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[\d+\])/g;
-  const parts = text.split(regex);
-
-  return parts.map((part, index) => {
-    if (!part) return null;
-
-    if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
-      const cleanInner = cleanEscapes(part.substring(2, part.length - 2));
-      return (
-        <Text key={`b-${index}`} style={styles.bold}>
-          {cleanInner}
-        </Text>
-      );
-    }
-
-    if (part.startsWith('*') && part.endsWith('*') && part.length >= 2) {
-      const cleanInner = cleanEscapes(part.substring(1, part.length - 1));
-      return (
-        <Text key={`i-${index}`} style={styles.italic}>
-          {cleanInner}
-        </Text>
-      );
-    }
-
-    if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
-      return (
-        <Text key={`c-${index}`} style={styles.inlineCode}>
-          {part.substring(1, part.length - 1)}
-        </Text>
-      );
-    }
-
-    const citationMatch = part.match(/^\[(\d+)\]$/);
-    if (citationMatch) {
-      const citNum = parseInt(citationMatch[1], 10);
-      return (
-        <Text
-          key={`cit-${index}`}
-          style={styles.citationBadge}
-          onPress={() => onCitationPress?.(citNum)}
-        >
-          {part}
-        </Text>
-      );
-    }
-
-    return <Text key={`t-${index}`}>{cleanEscapes(part)}</Text>;
-  });
+    ) : part.startsWith('*') && part.endsWith('*') ? (
+      <Text key={i} style={{ fontStyle: 'italic' }}>
+        {part.slice(1, -1)}
+      </Text>
+    ) : part.startsWith('`') && part.endsWith('`') ? (
+      <Text key={i} style={styles.mono}>
+        {part.slice(1, -1)}
+      </Text>
+    ) : /^\[\d+\]$/.test(part) && onCitationPress ? (
+      <Text
+        key={i}
+        accessibilityRole="button"
+        accessibilityLabel={'Open source ' + part}
+        style={styles.link}
+        onPress={() => onCitationPress(Number(part.slice(1, -1)))}
+      >
+        {part}
+      </Text>
+    ) : (
+      part
+    ),
+  );
 }
+const cells = (line: string) =>
+  line
+    .trim()
+    .replace(/^\|/, '')
+    .replace(/\|$/, '')
+    .split('|')
+    .map((c) => c.trim());
+export const MarkdownView = React.memo(
+  ({ content, onCitationPress }: { content: string; onCitationPress?: (id: number) => void }) => {
+    const lines = content.split('\n');
+    const nodes: React.ReactNode[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i],
+        trimmed = line.trim();
+      if (trimmed.startsWith('```')) {
+        const code: string[] = [];
+        const start = i;
+        while (++i < lines.length && !lines[i].trim().startsWith('```')) code.push(lines[i]);
+        nodes.push(<CodeBlock key={'code' + start} code={code.join('\n')} />);
+        continue;
+      }
+      if (
+        line.includes('|') &&
+        i + 1 < lines.length &&
+        cells(lines[i + 1]).every((c) => /^:?-{3,}:?$/.test(c))
+      ) {
+        const rows = [cells(line)];
+        const start = i;
+        i++;
+        while (i + 1 < lines.length && lines[i + 1].includes('|') && lines[i + 1].trim())
+          rows.push(cells(lines[++i]));
+        nodes.push(
+          <ScrollView horizontal key={'table' + start}>
+            <View accessibilityLabel="Table" style={styles.table}>
+              {rows.map((row, r) => (
+                <View key={r} style={{ flexDirection: 'row' }}>
+                  {row.map((cell, c) => (
+                    <Text
+                      selectable
+                      key={c}
+                      style={[
+                        styles.cell,
+                        r === 0 && { fontWeight: '700', backgroundColor: colors.raised },
+                      ]}
+                    >
+                      {inline(cell, onCitationPress)}
+                    </Text>
+                  ))}
+                </View>
+              ))}
+            </View>
+          </ScrollView>,
+        );
+        continue;
+      }
+      if (!trimmed) {
+        nodes.push(<View key={i} style={{ height: 8 }} />);
+        continue;
+      }
+      if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+        nodes.push(<View key={i} style={styles.rule} />);
+        continue;
+      }
+      const quote = trimmed.match(/^>\s?(.*)$/);
+      if (quote) {
+        nodes.push(
+          <View
+            key={i}
+            style={{ borderLeftWidth: 3, borderLeftColor: colors.green, paddingLeft: 12 }}
+          >
+            <Text selectable style={styles.text}>
+              {inline(quote[1], onCitationPress)}
+            </Text>
+          </View>,
+        );
+        continue;
+      }
+      const heading = trimmed.match(/^#{1,6}\s+(.+)$/);
+      const list = trimmed.match(/^(\d+[.)]|[-*])\s+(.+)$/);
+      nodes.push(
+        <Text
+          selectable
+          key={i}
+          style={[styles.text, heading && styles.heading, list && { paddingLeft: 8 }]}
+        >
+          {inline(
+            heading
+              ? heading[1]
+              : list
+                ? (list[1] === '-' || list[1] === '*' ? '•' : list[1]) + ' ' + list[2]
+                : line,
+            onCitationPress,
+          )}
+        </Text>,
+      );
+    }
+    return <View style={{ gap: 4 }}>{nodes}</View>;
+  },
+);
+const styles = StyleSheet.create({
+  text: { color: colors.text, fontSize: 16, lineHeight: 25 },
+  heading: { color: colors.text, fontSize: 20, lineHeight: 28, fontWeight: '700', marginTop: 10 },
+  link: { color: colors.green, fontSize: 16 },
+  mono: { color: colors.text, fontFamily: 'monospace', fontSize: 15, lineHeight: 23 },
+  code: { backgroundColor: colors.bg, borderRadius: 8, padding: 12 },
+  copy: { minHeight: 48, justifyContent: 'center', alignSelf: 'flex-end' },
+  table: { borderColor: colors.border, borderWidth: 1, marginVertical: 8 },
+  cell: {
+    color: colors.text,
+    fontSize: 16,
+    lineHeight: 24,
+    width: 180,
+    padding: 10,
+    borderWidth: 0.5,
+    borderColor: colors.border,
+  },
+  rule: { height: 1, backgroundColor: colors.border, marginVertical: 8 },
+});
 
 export function cleanLatexMath(str: string): string {
   let cleaned = str;
@@ -227,10 +181,18 @@ export function cleanLatexMath(str: string): string {
   cleaned = cleaned.replace(/^\\\[\s*/, '').replace(/\s*\\\]$/, '');
   cleaned = cleaned.replace(/^\\\(\s*/, '').replace(/\s*\\\)$/, '');
   // Strip any inline \( or \) or $$ delimiters, as well as stray \[ and \]
-  cleaned = cleaned.replace(/\\([()])/g, '').replace(/\$\$/g, '').replace(/\\\[/g, '').replace(/\\\]/g, '');
+  cleaned = cleaned
+    .replace(/\\([()])/g, '')
+    .replace(/\$\$/g, '')
+    .replace(/\\\[/g, '')
+    .replace(/\\\]/g, '');
 
   // Strip standalone brackets around math formulas e.g. "[ \text{...} ]"
-  if (cleaned.startsWith('[') && cleaned.endsWith(']') && /\\(text|frac|approx|times|cdot|boxed)/.test(cleaned)) {
+  if (
+    cleaned.startsWith('[') &&
+    cleaned.endsWith(']') &&
+    /\\(text|frac|approx|times|cdot|boxed)/.test(cleaned)
+  ) {
     cleaned = cleaned.slice(1, -1).trim();
   }
 
@@ -257,8 +219,7 @@ export function cleanLatexMath(str: string): string {
   cleaned = cleaned.replace(/₹\s*\$+/g, '₹').replace(/\$+\s*₹/g, '₹');
   cleaned = cleaned.replace(/\${2,}/g, '$');
   cleaned = cleaned.replace(/(₹\s*\d+)\$/g, '$1');
-  cleaned = cleaned.replace(/=\s*\$(\d+)\$/g, '= $1');
-  cleaned = cleaned.replace(/=\s*\$(\d+)/g, '= $1');
+  // A dollar prefix is also a currency marker. Never remove it from a number.
 
   return cleaned
     .replace(/\\approx/g, '≈')
@@ -271,145 +232,3 @@ export function cleanLatexMath(str: string): string {
     .replace(/\\sqrt\{([^{}]+)\}/g, '√($1)')
     .replace(/\\circ/g, '°');
 }
-
-function cleanEscapes(str: string): string {
-  const withoutLatex = cleanLatexMath(str);
-  // Strip model backslash escapes: \. \* \_ \# \[ \] \( \) \-
-  return withoutLatex.replace(/\\([.\*\_#\[\]\(\)\-\`])/g, '$1');
-}
-
-const styles = StyleSheet.create({
-  container: {
-    width: '100%'
-  },
-  paragraph: {
-    color: '#E0E0E0',
-    fontSize: 15,
-    lineHeight: 23,
-    marginBottom: 4,
-    letterSpacing: 0.2
-  },
-  h1: {
-    color: '#FFFFFF',
-    fontSize: 19,
-    fontWeight: '800',
-    marginTop: 10,
-    marginBottom: 6,
-    letterSpacing: 0.3
-  },
-  h2: {
-    color: '#4ADE80',
-    fontSize: 16,
-    fontWeight: '700',
-    marginTop: 8,
-    marginBottom: 4,
-    letterSpacing: 0.2
-  },
-  h3: {
-    color: '#F3F4F6',
-    fontSize: 15,
-    fontWeight: '700',
-    marginTop: 6,
-    marginBottom: 3
-  },
-  h4: {
-    color: '#E4E4E7',
-    fontSize: 14,
-    fontWeight: '700',
-    marginTop: 8,
-    marginBottom: 3,
-    letterSpacing: 0.1
-  },
-  h5: {
-    color: '#D4D4D8',
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 6,
-    marginBottom: 2
-  },
-  horizontalRule: {
-    height: 1,
-    backgroundColor: '#27272A',
-    marginVertical: 12,
-    width: '100%'
-  },
-  bold: {
-    fontWeight: '700',
-    color: '#FFFFFF'
-  },
-  italic: {
-    fontStyle: 'italic',
-    color: '#CBD5E1'
-  },
-  inlineCode: {
-    fontFamily: 'monospace',
-    backgroundColor: '#1E293B',
-    color: '#38BDF8',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 4,
-    fontSize: 13
-  },
-  codeBlock: {
-    backgroundColor: '#141414',
-    borderColor: '#262626',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    marginVertical: 8
-  },
-  codeText: {
-    color: '#38BDF8',
-    fontFamily: 'monospace',
-    fontSize: 13,
-    lineHeight: 18
-  },
-  listRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginVertical: 2,
-    paddingLeft: 4
-  },
-  bulletSymbol: {
-    color: '#4ADE80',
-    fontSize: 15,
-    marginRight: 8,
-    lineHeight: 22
-  },
-  numSymbol: {
-    color: '#4ADE80',
-    fontSize: 14,
-    fontWeight: '700',
-    marginRight: 6,
-    lineHeight: 22
-  },
-  listText: {
-    flex: 1,
-    color: '#E0E0E0',
-    fontSize: 15,
-    lineHeight: 22
-  },
-  blockquote: {
-    borderLeftWidth: 3,
-    borderLeftColor: '#4ADE80',
-    paddingLeft: 10,
-    marginVertical: 6
-  },
-  blockquoteText: {
-    color: '#94A3B8',
-    fontStyle: 'italic',
-    fontSize: 14,
-    lineHeight: 20
-  },
-  citationBadge: {
-    color: '#4ADE80',
-    fontWeight: '800',
-    backgroundColor: '#1E3A24',
-    paddingHorizontal: 4,
-    borderRadius: 4,
-    fontSize: 13
-  },
-  lineSpacer: {
-    height: 6
-  }
-});

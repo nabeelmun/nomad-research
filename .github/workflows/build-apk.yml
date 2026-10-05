@@ -1,56 +1,68 @@
-name: Build NomadLM Offline Research APK
-
+name: Build Android APK
 on:
   push:
-    branches: [ main, master ]
+    tags: ['v*']
   workflow_dispatch:
-
 permissions:
-  contents: write
-
+  contents: read
 jobs:
+  checks:
+    uses: ./.github/workflows/checks.yml
   build:
+    needs: checks
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 22
           cache: npm
-
-      - name: Setup Java JDK
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: temurin
           java-version: '17'
-
-      - name: Install Dependencies
-        run: npm ci
-
-      - name: Generate Android Project
-        run: npx expo prebuild --platform android
-
-      - name: Build Android Release APK
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon
-
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: nomad-research-release-apk
-          path: android/app/build/outputs/apk/release/*.apk
-          retention-days: 14
-
-      - name: Attach APK to GitHub Release v1.1.0
-        uses: softprops/action-gh-release@v2
-        if: success()
-        with:
-          tag_name: v1.1.0
-          files: android/app/build/outputs/apk/release/*.apk
+      - uses: android-actions/setup-android@v3
+      - run: npm ci --ignore-scripts
+      - run: node node_modules/llama.rn/install/download-native-artifacts.js
+      - run: npx expo prebuild --platform android --no-clean --no-install
+      - run: cd android && chmod +x gradlew && ./gradlew assembleRelease --no-daemon
+      - name: Sign tagged releases with the project's persistent key
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOMAD_KEYSTORE_BASE64: ${{ secrets.NOMAD_KEYSTORE_BASE64 }}
+          NOMAD_STORE_PASSWORD: ${{ secrets.NOMAD_STORE_PASSWORD }}
+          NOMAD_KEY_PASSWORD: ${{ secrets.NOMAD_KEY_PASSWORD }}
+          NOMAD_KEY_ALIAS: ${{ secrets.NOMAD_KEY_ALIAS }}
+        run: |
+          python scripts/write_keystore.py
+          BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/nomad-release.jks" --ks-key-alias "$NOMAD_KEY_ALIAS" --ks-pass env:NOMAD_STORE_PASSWORD --key-pass env:NOMAD_KEY_PASSWORD android/app/build/outputs/apk/release/app-release.apk
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs android/app/build/outputs/apk/release/app-release.apk > signing-verification.txt
+      - run: python scripts/release_metadata.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nomad-android-${{ github.sha }}
+          path: release/apk/*
+          retention-days: 14
+          if-no-files-found: error
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: nomad-android-${{ github.sha }}
+          path: release/apk
+      - name: Publish one immutable APK with matching provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release already exists. Use a new version tag; existing assets are never overwritten."
+            exit 1
+          fi
+          gh release create "$GITHUB_REF_NAME" release/apk/* --verify-tag --title "NomadLM $GITHUB_REF_NAME" --notes-file release/apk/release-notes.md

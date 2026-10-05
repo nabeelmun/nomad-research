@@ -1,0 +1,17 @@
+{
+  "reviewBy": "2026-11-05",
+  "advisories": [
+    {
+      "url": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+      "package": "braces",
+      "version": "3.0.3",
+      "reason": "No patched npm version exists at implementation time. Used by Metro build tooling on repository files, not app input. Build only trusted branches; revisit when patched."
+    },
+    {
+      "url": "https://github.com/advisories/GHSA-86w9-cpqp-85rv",
+      "package": "node-forge",
+      "version": "1.4.0",
+      "reason": "No patched npm version exists at implementation time. Expo CLI dependency; not used to verify model/corpus downloads. APK signing uses Android apksigner. Revisit when patched."
+    }
+  ]
+}

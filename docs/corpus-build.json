@@ -1,0 +1,31 @@
+{
+  "built": "2026-10-06",
+  "schemaVersion": 2,
+  "packs": [
+    {
+      "id": "voyage",
+      "filename": "voyage.search.db",
+      "schemaVersion": 2,
+      "bytes": 624455680,
+      "sha256": "bb25d6b7838d14d89d8003a6c938557d318c6f84901702bbb32c02e0cbdc434d",
+      "sourceSha256": "f59a2708b3c9bc3b96e2a9ded7fa082765e7ad1b62f3d302d50d0f75be7f7983",
+      "articles": 34004,
+      "passages": 716041,
+      "sourceDate": "2026-09",
+      "license": "CC BY-SA"
+    },
+    {
+      "id": "wiki",
+      "filename": "wiki_core.search.db",
+      "schemaVersion": 2,
+      "bytes": 270299136,
+      "sha256": "9a41f0c115e07e5cefe65eadbb39298f5717df92250749d1835e38d686791e42",
+      "sourceSha256": "97dc1b11ebe8eaabcb5092115c24a5161f10f3700dd26707c41a4b0d4d247238",
+      "articles": 2570,
+      "passages": 153224,
+      "sourceDate": "2025-08",
+      "license": "CC BY-SA"
+    }
+  ],
+  "validation": "Both pinned raw files passed SHA-256; full builder integrity checks and production retrieval validation passed. This is desktop data validation, not an on-device speed test."
+}
